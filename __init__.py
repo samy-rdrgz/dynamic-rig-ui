@@ -1,50 +1,57 @@
+"""
+Rig UI - Interface utilisateur pour rigs Blender.
+
+Addon pour gérer facilement les controllers, propriétés custom,
+masks et outils de snap IK/FK sur un rig.
+"""
+
 bl_info = {
-    "name": "guercoeur",
-    "description": "Tools liés à la création de line art en Géometry Node. Gestion de Vertex Groups et de fichiers liés.",
-    "author": "Loops creative studio",
+    "name": "Dynamic Rig UI",
+    "author": "Samy RODRIGUEZ",
     "version": (1, 0, 0),
-    "blender": (4, 2, 0),
-    "location": "View3D",
-    "warning": "",
-    "doc_url": "https://book.loopscreativestudio.com/",
-    "tracker_url": "https://book.loopscreativestudio.com/",
-    "category": "Development"
-    }
+    "blender": (5, 0, 0),
+    "location": "View3D > Sidebar > Item",
+    "description": "Custom rig UI with controllers, properties and tools",
+    "category": "Rigging",
+}
+
+import contextlib
 
 import bpy
-from . import vertexGroups
-from . import reload
-from . import export
+
+from .operators import classes as operator_classes
+from .panels import classes as panel_classes
+from .properties import RIGUI_PG_settings
+from .utils import init_ui_properties
+
+# Ordre d'enregistrement : PropertyGroups -> Operators -> Panels
+_classes = (
+    RIGUI_PG_settings,
+    *operator_classes,
+    *panel_classes,
+)
 
 
-#INTERFACE
-class LAT_PT_main_panel(bpy.types.Panel):
-    """Creation d'un Sous-Panel dans le 'N' panel de la vue 3D, pour contenir l'interface de l'addon.
-    """
-    bl_label = "Tools"  
-    bl_space_type = "VIEW_3D"  
-    bl_region_type = "UI"
-    bl_category = "LineArt"
-    #bl_context = "objectmode"
-    bl_idname = "LAT_PT_main_panel"
-    bl_options = {'HEADER_LAYOUT_EXPAND'}
-    
-    def draw(self, context):
-        pass
-
-
-#BACKEND
 def register():
-    bpy.utils.register_class(LAT_PT_main_panel)
-    export.register()
-    reload.register()
-    vertexGroups.register()
+    """Enregistre toutes les classes de l'addon."""
+    for cls in _classes:
+        bpy.utils.register_class(cls)
+
+    # Enregistre la propriété sur Scene
+    bpy.types.Scene.rigui_settings = bpy.props.PointerProperty(type=RIGUI_PG_settings)
+
 
 def unregister():
-    bpy.utils.unregister_class(LAT_PT_main_panel)
-    export.unregister()
-    reload.unregister()
-    vertexGroups.unregister()
+    """Désenregistre toutes les classes de l'addon."""
+    # Supprime la propriété
+    if hasattr(bpy.types.Scene, "rigui_settings"):
+        del bpy.types.Scene.rigui_settings
+
+    # Désenregistre dans l'ordre inverse
+    for cls in reversed(_classes):
+        with contextlib.suppress(RuntimeError):
+            bpy.utils.unregister_class(cls)
+
 
 if __name__ == "__main__":
     register()
