@@ -7,7 +7,7 @@ from ..config import RIG_ID
 
 def show_messagebox(
     title: str = "Info",
-    lines: list[str] = None,
+    lines: list[str] = None, # type: ignore
     icon: str = "INFO",
 ) -> None:
     """Affiche une popup de retour utilisateur.

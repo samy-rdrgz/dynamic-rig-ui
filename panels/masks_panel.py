@@ -11,12 +11,12 @@ from ..utils import get_active_rig
 class RIGUI_PT_masks(Panel):
     """Panel pour toggle les modifiers mask des meshes enfants."""
 
-    bl_idname = f"{RIG_NAME.lower()}_PT_masks"
+    bl_idname = "RIGUI_PT_masks"
     bl_label = "Masks"
     bl_category = "Item"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_parent_id = f"{RIG_NAME.lower()}_PT_main"
+    bl_parent_id = "RIGUI_PT_main"
     bl_options = {"HIDE_HEADER"}
 
     def draw(self, context):

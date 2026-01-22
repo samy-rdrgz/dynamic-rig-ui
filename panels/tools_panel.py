@@ -9,12 +9,12 @@ from ..utils import get_active_rig, is_valid_rig
 class RIGUI_PT_tools(Panel):
     """Panel avec les outils de snap IK/FK."""
 
-    bl_idname = f"{RIG_NAME.lower()}_PT_tools"
+    bl_idname = "RIGUI_PT_tools"
     bl_label = "Snap Utilities"
     bl_category = "Item"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_parent_id = f"{RIG_NAME.lower()}_PT_main"
+    bl_parent_id = "RIGUI_PT_main"
     bl_options = {"HIDE_HEADER"}
 
     @classmethod

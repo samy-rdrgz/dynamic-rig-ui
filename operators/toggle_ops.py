@@ -54,33 +54,86 @@ class RIGUI_OT_toggle_controllers(Operator):
         return {"FINISHED"}
 
 
-class RIGUI_OT_toggle_boxes(Operator):
-    """Toggle l'état collapsed des boxes de l'UI."""
+class RIGUI_OT_toggle_box(Operator):
+    """Toggle l'état expanded/collapsed d'une box."""
 
-    bl_idname = f"{RIG_NAME.lower()}.toggle_boxes"
-    bl_label = "Toggle Boxes"
-    bl_description = "Toggle collapsible state of several boxes"
-    bl_options = {"UNDO", "INTERNAL"}
+    bl_idname = "rigui.toggle_box"
+    bl_label = "Toggle Box"
+    bl_description = "Toggle box expanded/collapsed state"
+    bl_options = {"INTERNAL"}  # Pas d'UNDO pour l'UI
 
-    param: StringProperty(name="Prefix to toggle")
+    rig_id: StringProperty()
+    box_name: StringProperty()
 
     def execute(self, context):
-        armature = get_active_rig(context)
-        if armature is None:
+        scene = context.scene
+
+        # Trouve ou crée le rig state
+        rig_state = None
+        for state in scene.rigui_states:
+            if state.rig_id == self.rig_id:
+                rig_state = state
+                break
+
+        if rig_state is None:
+            rig_state = scene.rigui_states.add()
+            rig_state.rig_id = self.rig_id
+
+        # Trouve ou crée la box
+        box_state = None
+        for box in rig_state.boxes:
+            if box.name == self.box_name:
+                box_state = box
+                break
+
+        if box_state is None:
+            box_state = rig_state.boxes.add()
+            box_state.name = self.box_name
+            box_state.expanded = True
+
+        # Toggle !
+        box_state.expanded = not box_state.expanded
+
+        return {"FINISHED"}
+
+
+class RIGUI_OT_toggle_all_boxes(Operator):
+    """Toggle toutes les boxes avec un certain préfixe."""
+
+    bl_idname = f"{RIG_NAME.lower()}.toggle_all_boxes"
+    bl_label = "Toggle All Boxes"
+    bl_description = "Toggle all boxes expanded/collapsed state"
+    bl_options = {"INTERNAL"}
+
+    rig_id: StringProperty()
+    prefix: StringProperty()  # ex: "ui_ctrl_" ou "ui_prop_"
+
+    def execute(self, context):
+        scene = context.scene
+
+        # Trouve le rig state
+        rig_state = None
+        for state in scene.rigui_states:
+            if state.rig_id == self.rig_id:
+                rig_state = state
+                break
+
+        if rig_state is None:
+            # Pas de state = rien à toggle
             return {"CANCELLED"}
 
-        # Trouve toutes les propriétés qui commencent par le préfixe
-        box_keys = [key for key in armature.data if key.startswith(self.param)]
+        # Trouve toutes les boxes avec ce préfixe
+        matching_boxes = [box for box in rig_state.boxes if box.name.startswith(self.prefix)]
 
-        if not box_keys:
+        if not matching_boxes:
             return {"CANCELLED"}
 
         # Détermine l'état cible
-        any_expanded = any(armature.data[key] for key in box_keys)
+        any_expanded = any(box.expanded for box in matching_boxes)
         target_state = not any_expanded
 
-        for key in box_keys:
-            armature.data[key] = target_state
+        for box in matching_boxes:
+            box.expanded = target_state
 
         return {"FINISHED"}
 
@@ -129,6 +182,7 @@ class RIGUI_OT_toggle_masks(Operator):
 # Classes à enregistrer
 classes = (
     RIGUI_OT_toggle_controllers,
-    RIGUI_OT_toggle_boxes,
+    RIGUI_OT_toggle_box,
+    RIGUI_OT_toggle_all_boxes,
     RIGUI_OT_toggle_masks,
 )

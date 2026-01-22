@@ -48,5 +48,27 @@ class RIGUI_PG_settings(PropertyGroup):
     )
 
 
+class RIGUI_PG_BoxState(bpy.types.PropertyGroup):
+    """État d'une box (expanded/collapsed)."""
+
+    name: bpy.props.StringProperty()  # "ui_ctrl_ARM", "ui_prop_LEG"
+    expanded: bpy.props.BoolProperty(default=True)
+
+
+class RIGUI_PG_RigUIState(bpy.types.PropertyGroup):
+    """État UI complet pour un rig spécifique."""
+
+    rig_id: bpy.props.StringProperty()
+
+    # États des boxes
+    boxes: bpy.props.CollectionProperty(type=RIGUI_PG_BoxState)
+
+    # Ordre des panels (stocké en JSON ou simple string)
+    panel_A: bpy.props.StringProperty(default="RIG_UI_PT_rigui")
+    panel_B: bpy.props.StringProperty(default="RIG_UI_PT_customprops")
+    panel_C: bpy.props.StringProperty(default="RIG_UI_PT_tools")
+    panel_D: bpy.props.StringProperty(default="RIG_UI_PT_masks")
+
+
 # Classes à enregistrer
-classes = (RIGUI_PG_settings,)
+classes = (RIGUI_PG_settings, RIGUI_PG_BoxState, RIGUI_PG_RigUIState)

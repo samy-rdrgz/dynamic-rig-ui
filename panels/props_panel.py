@@ -11,12 +11,12 @@ from ..utils import get_active_rig, is_valid_rig
 class RIGUI_PT_customprops(Panel):
     """Panel affichant les propriétés custom organisées par catégorie."""
 
-    bl_idname = f"{RIG_NAME.lower()}_PT_customprops"
+    bl_idname = "RIGUI_PT_customprops"
     bl_label = "Properties"
     bl_category = "Item"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_parent_id = f"{RIG_NAME.lower()}_PT_main"
+    bl_parent_id = "RIGUI_PT_main"
     bl_options = {"HIDE_HEADER"}
 
     @classmethod

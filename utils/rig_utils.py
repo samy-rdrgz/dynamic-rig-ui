@@ -3,7 +3,7 @@
 import bpy
 from mathutils import Matrix
 
-from ..config import PROPERTY_BONE, RIG_ID
+from ..config import PROPERTY_BONE
 
 
 def get_active_rig(context: bpy.types.Context) -> bpy.types.Object | None:
@@ -44,9 +44,29 @@ def is_valid_rig(obj: bpy.types.Object | None) -> bool:
         return False
 
     try:
-        return obj.data.get("rig_id") == RIG_ID
+        return obj.data.get("has_dyn_rigui")
     except (AttributeError, KeyError, TypeError):
         return False
+
+
+def get_rig_data(context: bpy.types.Context, data: str) -> str | int | None:
+    """Retourne la  valeur de custom props demandée si trouvée,
+    sinon None.
+
+    Args:
+        context: Le contexte Blender courant.
+
+    Returns:
+        Type de la custom prop si trouvée, sinon None
+    """
+    obj = get_active_rig(context)
+    if obj:
+        try:
+            return obj.data.get(data)
+        except Exception:
+            return None
+    else:
+        return None
 
 
 def get_property_bone(armature: bpy.types.Object) -> bpy.types.PoseBone | None:

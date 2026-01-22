@@ -1,6 +1,5 @@
 """Panel des paramètres de l'interface."""
 
-import bpy
 from bpy.types import Panel
 
 from ..config import RIG_NAME
@@ -10,7 +9,7 @@ from ..utils import get_active_rig
 class RIGUI_PT_settings(Panel):
     """Panel pour configurer l'ordre des panels."""
 
-    bl_idname = f"{RIG_NAME.lower()}_PT_settings"
+    bl_idname = "dynamic_rigui_PT_settings"
     bl_label = "Rig UI Settings"
     bl_category = "Item"
     bl_space_type = "VIEW_3D"

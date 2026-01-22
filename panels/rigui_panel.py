@@ -5,18 +5,24 @@ import re
 from bpy.types import Panel
 
 from ..config import RIG_NAME
-from ..utils import get_active_rig, get_bone_collections_list, is_valid_rig
+from ..utils import (
+    get_active_rig,
+    get_bone_collections_list,
+    get_box_expanded,
+    get_rig_data,
+    is_valid_rig,
+)
 
 
 class RIGUI_PT_rigui(Panel):
     """Panel affichant les contrôleurs par catégorie."""
 
-    bl_idname = f"{RIG_NAME.lower()}_PT_rigui"
+    bl_idname = "RIGUI_PT_rigui"
     bl_label = "Controllers"
     bl_category = "Item"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_parent_id = f"{RIG_NAME.lower()}_PT_main"
+    bl_parent_id = "RIGUI_PT_main"
     bl_options = {"HIDE_HEADER"}
 
     @classmethod
@@ -24,13 +30,13 @@ class RIGUI_PT_rigui(Panel):
         armature = get_active_rig(context)
         if armature is None:
             return False
-        # Ne montre que si l'objet actif est directement l'armature
         if context.active_object.type != "ARMATURE":
             return False
         return is_valid_rig(armature)
 
     def draw(self, context):
         armature = get_active_rig(context)
+        rig_id = str(get_rig_data(context, "rig_id"))
         property_bone = armature.pose.bones["PROPERTIES"]
         collections_str = get_bone_collections_list(armature)
 
@@ -60,13 +66,15 @@ class RIGUI_PT_rigui(Panel):
         panel = layout.box().column()
 
         # Header avec toggle global
-        self._draw_header(panel, armature)
+        self._draw_header(context, panel, armature, rig_id, collections_data)
         panel.separator(type="LINE", factor=0.2)
 
         # Dessine chaque groupe
-        self._draw_collections(panel, armature, property_bone, collections_data, collections_str)
+        self._draw_collections(
+            context, panel, armature, rig_id, property_bone, collections_data, collections_str
+        )
 
-    def _draw_header(self, panel, armature):
+    def _draw_header(self, context, panel, armature, rig_id, collections_data):
         """Dessine l'en-tête avec les toggles globaux."""
         title = panel.row()
         title.active = False
@@ -86,16 +94,20 @@ class RIGUI_PT_rigui(Panel):
         ).param = "all"
 
         # Toggle expand/collapse de toutes les boxes
+        # Vérifie si au moins une box est expanded
+        parts = set(d["part"] for d in collections_data)
         any_expanded = any(
-            armature.data[key] for key in armature.data if key.startswith("ui_ctrl_")
+            get_box_expanded(context.scene, rig_id, f"ui_ctrl_{part}") for part in parts
         )
         icon = "DOWNARROW_HLT" if any_expanded else "RIGHTARROW"
-        title.operator(
-            f"{RIG_NAME.lower()}.toggle_boxes",
+        op = title.operator(
+            f"{RIG_NAME.lower()}.toggle_all_boxes",
             emboss=False,
             text="",
             icon=icon,
-        ).param = "ui_ctrl_"
+        )
+        op.rig_id = rig_id
+        op.prefix = "ui_ctrl_"
 
         # Titre
         title_txt = title.row()
@@ -103,7 +115,9 @@ class RIGUI_PT_rigui(Panel):
         title_txt.alignment = "LEFT"
         title_txt.label(text="CONTROLLERS")
 
-    def _draw_collections(self, panel, armature, property_bone, collections_data, collections_str):
+    def _draw_collections(
+        self, context, panel, armature, rig_id, property_bone, collections_data, collections_str
+    ):
         """Dessine les collections groupées par partie du corps."""
         current_part = None
         box = None
@@ -132,17 +146,27 @@ class RIGUI_PT_rigui(Panel):
                 box = panel.row().column(align=True)
 
                 self._draw_group_header(
-                    box, armature, collection, part, is_collapsible, collections_str
+                    context,
+                    box,
+                    armature,
+                    rig_id,
+                    collection,
+                    part,
+                    is_collapsible,
+                    collections_str,
                 )
 
-                if is_collapsible and armature.data.get(f"ui_ctrl_{part}"):
+                # Espace après le header si expanded
+                expanded = get_box_expanded(context.scene, rig_id, f"ui_ctrl_{part}")
+                if is_collapsible and expanded:
                     box.separator(factor=0.5)
 
                 current_part = part
                 col_index = 0
 
             # Contenu du groupe (si collapsible et expanded)
-            if is_collapsible and armature.data.get(f"ui_ctrl_{part}"):
+            expanded = get_box_expanded(context.scene, rig_id, f"ui_ctrl_{part}")
+            if is_collapsible and expanded:
                 box_line, col_index = self._draw_collection_item(
                     box,
                     box_line,
@@ -157,7 +181,9 @@ class RIGUI_PT_rigui(Panel):
                     col_index,
                 )
 
-    def _draw_group_header(self, box, armature, collection, part, is_collapsible, collections_str):
+    def _draw_group_header(
+        self, context, box, armature, rig_id, collection, part, is_collapsible, collections_str
+    ):
         """Dessine l'en-tête d'un groupe de collections."""
         title_line = box.row().split(factor=0.9)
         title_line.scale_y = 0.6
@@ -168,16 +194,10 @@ class RIGUI_PT_rigui(Panel):
         title_collapse.alignment = "RIGHT"
 
         if not is_collapsible:
-            # Groupe simple (une seule collection)
+            # Groupe simple (une seule collection) - pas de toggle expand
             title_eye = title_eye.row()
             title_eye.active = True
-            title_eye.prop(
-                armature.data,
-                f'["ui_ctrl_{part}"]',
-                emboss=False,
-                text=collection.name,
-                icon="REMOVE",
-            )
+            title_eye.label(text=collection.name, icon="REMOVE")
             title_collapse.prop(
                 collection,
                 "is_visible",
@@ -195,16 +215,21 @@ class RIGUI_PT_rigui(Panel):
                 col.is_visible for col in armature.data.collections if col.name in part_collections
             )
 
-            expanded = armature.data.get(f"ui_ctrl_{part}", False)
+            # LECTURE de l'état (safe dans draw)
+            expanded = get_box_expanded(context.scene, rig_id, f"ui_ctrl_{part}")
             icon = "DOWNARROW_HLT" if expanded else "RIGHTARROW"
-            title_eye.prop(
-                armature.data,
-                f'["ui_ctrl_{part}"]',
+
+            # ÉCRITURE via operator (pas de prop sur box_state !)
+            op = title_eye.operator(
+                "rigui.toggle_box",
                 emboss=False,
                 text=part,
                 icon=icon,
             )
+            op.rig_id = rig_id
+            op.box_name = f"ui_ctrl_{part}"
 
+            # Toggle visibilité des collections du groupe
             title_collapse.operator(
                 f"{RIG_NAME.lower()}.toggle_controllers",
                 emboss=False,
@@ -231,7 +256,7 @@ class RIGUI_PT_rigui(Panel):
         if is_prop:
             box.separator(factor=0.25)
             row = box.row(align=True)
-            for prop in property_bone:
+            for prop in property_bone.keys():
                 if prop.startswith(f"{part}_{sub_part}"):
                     row.prop(
                         property_bone,

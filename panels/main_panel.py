@@ -1,16 +1,14 @@
 """Panel principal de l'addon Rig UI."""
 
-import bpy
 from bpy.types import Panel
 
-from ..config import RIG_ID, RIG_NAME
 from ..utils import get_active_rig, is_valid_rig
 
 
 class RIGUI_PT_main(Panel):
     """Panel principal contenant tous les sous-panels."""
 
-    bl_idname = f"{RIG_NAME.lower()}_PT_main"
+    bl_idname = "RIGUI_PT_main"
     bl_label = "Rig UI"
     bl_category = "Item"
     bl_space_type = "VIEW_3D"
