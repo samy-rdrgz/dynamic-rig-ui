@@ -40,6 +40,8 @@ def register():
         bpy.utils.register_class(cls)
 
     # Enregistre la propriété sur Scene
+    bpy.types.Scene.rigui_rig_name = bpy.props.StringProperty(name="Rig name")
+
     bpy.types.Scene.rigui_settings = bpy.props.PointerProperty(type=RIGUI_PG_settings)
     bpy.types.Scene.rigui_states = bpy.props.CollectionProperty(type=RIGUI_PG_RigUIState)
 

@@ -5,14 +5,13 @@ import re
 from bpy.props import StringProperty
 from bpy.types import Operator
 
-from ..config import RIG_NAME
-from ..utils import get_active_rig, get_bone_collections_list
+from ..utils import get_active_rig, get_bone_collections_list, get_box_state, get_rig_ui_state
 
 
 class RIGUI_OT_toggle_controllers(Operator):
     """Toggle la visibilité de plusieurs bone collections."""
 
-    bl_idname = f"{RIG_NAME.lower()}.toggle_controllers"
+    bl_idname = "rigui.toggle_controllers"
     bl_label = "Toggle Controllers"
     bl_description = "Toggle visibility of several bone collections"
     bl_options = {"UNDO", "INTERNAL"}
@@ -100,36 +99,31 @@ class RIGUI_OT_toggle_box(Operator):
 class RIGUI_OT_toggle_all_boxes(Operator):
     """Toggle toutes les boxes avec un certain préfixe."""
 
-    bl_idname = f"{RIG_NAME.lower()}.toggle_all_boxes"
+    bl_idname = "rigui.toggle_all_boxes"
     bl_label = "Toggle All Boxes"
     bl_description = "Toggle all boxes expanded/collapsed state"
     bl_options = {"INTERNAL"}
 
     rig_id: StringProperty()
     prefix: StringProperty()  # ex: "ui_ctrl_" ou "ui_prop_"
+    parts: StringProperty()
 
     def execute(self, context):
         scene = context.scene
-
-        # Trouve le rig state
-        rig_state = None
-        for state in scene.rigui_states:
-            if state.rig_id == self.rig_id:
-                rig_state = state
-                break
-
-        if rig_state is None:
-            # Pas de state = rien à toggle
-            return {"CANCELLED"}
-
+        parts = self.parts.split(",")
         # Trouve toutes les boxes avec ce préfixe
-        matching_boxes = [box for box in rig_state.boxes if box.name.startswith(self.prefix)]
-
+        matching_boxes = [get_box_state(scene, self.rig_id, self.prefix + i) for i in parts]
         if not matching_boxes:
             return {"CANCELLED"}
 
         # Détermine l'état cible
         any_expanded = any(box.expanded for box in matching_boxes)
+        rig_state = get_rig_ui_state(scene, self.rig_id)
+        boxes = rig_state.boxes
+        for i in range(len(boxes) - 1, -1, -1):
+            if boxes[i].name.startswith(self.prefix) and boxes[i] not in matching_boxes:
+                print(boxes[i].name, "removed")
+                boxes.remove(i)
         target_state = not any_expanded
 
         for box in matching_boxes:
@@ -141,7 +135,7 @@ class RIGUI_OT_toggle_all_boxes(Operator):
 class RIGUI_OT_toggle_masks(Operator):
     """Toggle la visibilité des modifiers mask."""
 
-    bl_idname = f"{RIG_NAME.lower()}.toggle_masks"
+    bl_idname = "rigui.toggle_masks"
     bl_label = "Toggle Masks"
     bl_description = "Toggle visibility of several mask modifiers"
     bl_options = {"UNDO", "INTERNAL"}

@@ -9,7 +9,7 @@ from .tools_panel import RIGUI_PT_tools
 
 # Classes à enregistrer (ordre important : parent avant enfants)
 classes = (
-    RIGUI_PT_main,
+    # RIGUI_PT_main,
     RIGUI_PT_rigui,
     RIGUI_PT_customprops,
     RIGUI_PT_masks,
@@ -18,7 +18,7 @@ classes = (
 )
 
 __all__ = [
-    "RIGUI_PT_main",
+    # "RIGUI_PT_main",
     "RIGUI_PT_rigui",
     "RIGUI_PT_customprops",
     "RIGUI_PT_masks",

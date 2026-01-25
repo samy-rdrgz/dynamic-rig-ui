@@ -10,12 +10,10 @@ class RIGUI_PT_tools(Panel):
     """Panel avec les outils de snap IK/FK."""
 
     bl_idname = "RIGUI_PT_tools"
-    bl_label = "Snap Utilities"
+    bl_label = "Dynamic RigUI - Anim Tools"
     bl_category = "Item"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_parent_id = "RIGUI_PT_main"
-    bl_options = {"HIDE_HEADER"}
 
     @classmethod
     def poll(cls, context):

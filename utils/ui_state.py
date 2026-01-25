@@ -59,15 +59,22 @@ def get_box_expanded(
     return default
 
 
-def get_box_state(scene: bpy.types.Scene, rig_id: str, box_name: str) -> "RIGUI_PG_BoxState | None":
-    """Retourne le BoxState ou None (sans créer)."""
+def get_box_state(
+    scene: bpy.types.Scene, rig_id: str, box_name: str, default_state: bool = False
+) -> "RIGUI_PG_BoxState":
+    """Retourne le BoxState ou crée si inexistant."""
 
-    for state in scene.rigui_states:
-        if state.rig_id == rig_id:
-            for box in state.boxes:
-                if box.name == box_name:
-                    return box
-    return None
+    rig_state = get_rig_ui_state(scene, rig_id)
+    box_state = None
+    for box in rig_state.boxes:
+        if box.name == box_name:
+            return box
+
+    if box_state is None:
+        box = rig_state.boxes.add()
+        box.name = box_name
+        box.expanded = default_state
+        return box
 
 
 def set_box_expanded(scene: bpy.types.Scene, rig_id: str, box_name: str, expanded: bool) -> None:
@@ -79,17 +86,9 @@ def set_box_expanded(scene: bpy.types.Scene, rig_id: str, box_name: str, expande
         box_name: Le nom de la box.
         expanded: True pour expand, False pour collapse.
     """
-    state = get_rig_ui_state(scene, rig_id)
 
-    for box in state.boxes:
-        if box.name == box_name:
-            box.expanded = expanded
-            return
-
-    # Crée l'entrée
-    box = state.boxes.add()
-    box.name = box_name
-    box.expanded = expanded
+    get_box_state(scene, rig_id, box_name).expanded = expanded
+    return
 
 
 def toggle_box(scene: bpy.types.Scene, rig_id: str, box_name: str) -> bool:
