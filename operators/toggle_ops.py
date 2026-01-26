@@ -1,11 +1,15 @@
 """Opérateurs pour toggle la visibilité des éléments."""
 
-import re
+import json
 
-from bpy.props import StringProperty
+import bpy
+from bpy.props import BoolProperty, StringProperty
 from bpy.types import Operator
 
-from ..utils import get_active_rig, get_bone_collections_list, get_box_state, get_rig_ui_state
+from ..utils import (
+    get_active_rig,
+    get_box_state,
+)
 
 
 class RIGUI_OT_toggle_controllers(Operator):
@@ -16,39 +20,32 @@ class RIGUI_OT_toggle_controllers(Operator):
     bl_description = "Toggle visibility of several bone collections"
     bl_options = {"UNDO", "INTERNAL"}
 
-    param: StringProperty(name="Prefix to toggle")
+    parts: StringProperty(name="Prefix to toggle")
+    toggle_solo: BoolProperty(default=False)
+    is_shift_hold: BoolProperty(default=False)
+    is_alt_hold: BoolProperty(default=False)
+
+    def invoke(self, context, event):
+        self.toggle_solo = False
+        if event.ctrl == True:
+            self.toggle_solo = True
+
+        return self.execute(context)
 
     def execute(self, context):
         armature = get_active_rig(context)
         if armature is None:
             return {"CANCELLED"}
 
-        collections_str = get_bone_collections_list(armature)
-
-        # Sélectionne les collections selon le préfixe
-        if self.param == "all":
-            pattern = r"^([A-Z]+)_?([A-Z0-9_]+)?(.[LMR])?.?(\d)?$"
-        else:
-            pattern = rf"^({self.param})_?([A-Z0-9_]+)?(.[LMR])?.?(\d)?$"
-
-        regex = re.compile(pattern, re.MULTILINE)
-        matches = regex.finditer(collections_str)
-
+        data = json.loads(self.parts)
         collections = [
-            armature.data.collections[match.group(0)]
-            for match in matches
-            if match.group(0) in armature.data.collections
+            bpy.data.armatures[d["armature"]].collections_all[d["collection"]] for d in data
         ]
+        attr = "is_solo" if self.toggle_solo else "is_visible"
+        visible = not any(getattr(c, attr) for c in collections)
 
-        if not collections:
-            return {"CANCELLED"}
-
-        # Détermine l'état cible (toggle)
-        any_visible = any(col.is_visible for col in collections)
-        target_state = not any_visible
-
-        for col in collections:
-            col.is_visible = target_state
+        for c in collections:
+            setattr(c, attr, visible)
 
         return {"FINISHED"}
 
@@ -117,17 +114,10 @@ class RIGUI_OT_toggle_all_boxes(Operator):
             return {"CANCELLED"}
 
         # Détermine l'état cible
-        any_expanded = any(box.expanded for box in matching_boxes)
-        rig_state = get_rig_ui_state(scene, self.rig_id)
-        boxes = rig_state.boxes
-        for i in range(len(boxes) - 1, -1, -1):
-            if boxes[i].name.startswith(self.prefix) and boxes[i] not in matching_boxes:
-                print(boxes[i].name, "removed")
-                boxes.remove(i)
-        target_state = not any_expanded
+        expand = not any(box.expanded for box in matching_boxes)
 
         for box in matching_boxes:
-            box.expanded = target_state
+            box.expanded = expand
 
         return {"FINISHED"}
 

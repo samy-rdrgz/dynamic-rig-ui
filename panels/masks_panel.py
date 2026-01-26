@@ -160,9 +160,7 @@ class RIGUI_PT_masks(Panel):
                     row.separator(factor=1.14)
 
                 any_visible = any(
-                    m["modifier"].show_viewport
-                    for m in masks_data
-                    if m["vg_name"] == vg_name
+                    m["modifier"].show_viewport for m in masks_data if m["vg_name"] == vg_name
                 )
                 row.operator(
                     "rigui.toggle_masks",

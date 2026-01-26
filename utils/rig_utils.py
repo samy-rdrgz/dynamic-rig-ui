@@ -81,7 +81,7 @@ def get_property_bone(armature: bpy.types.Object) -> bpy.types.PoseBone | None:
     return armature.pose.bones.get(PROPERTY_BONE)
 
 
-def get_bone_collections_list(armature: bpy.types.Object) -> str:
+def get_bone_collections_list(armature: bpy.types.Object) -> list:
     """Retourne la liste des collections sous forme de string multiligne.
 
     Utilisé pour le parsing regex des collections.
@@ -93,7 +93,7 @@ def get_bone_collections_list(armature: bpy.types.Object) -> str:
         String avec un nom de collection par ligne.
     """
     names = [col.name for col in armature.data.collections]
-    return "\n" + "\n".join(names)
+    return names
 
 
 def get_matrix_with_offset(
