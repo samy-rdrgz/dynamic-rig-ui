@@ -22,7 +22,6 @@ import bpy
 from .operators import classes as operator_classes
 from .panels import classes as panel_classes
 from .properties import RIGUI_PG_BoxState, RIGUI_PG_RigUIState, RIGUI_PG_settings
-from .utils import init_ui_properties
 
 # Ordre d'enregistrement : PropertyGroups -> Operators -> Panels
 _classes = (

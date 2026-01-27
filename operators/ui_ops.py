@@ -7,7 +7,6 @@ from bpy.props import StringProperty
 from bpy.types import Operator
 
 from ..config import RIG_NAME
-from ..utils import init_ui_properties
 
 
 class WM_OT_text_popup(Operator):
@@ -103,7 +102,7 @@ class RIGUI_OT_reload_ui(Operator):
                 bpy.utils.unregister_class(panel)
 
         # Réinitialise les propriétés UI
-        init_ui_properties()
+        # init_ui_properties()
 
         # Réenregistre dans l'ordre voulu
         for panel in panels_to_register:

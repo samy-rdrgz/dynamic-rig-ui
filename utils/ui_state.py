@@ -1,7 +1,9 @@
 import bpy
 
 
-def get_rig_ui_state(scene: bpy.types.Scene, rig_id: str) -> "RIGUI_PG_RigUIState":
+def get_rig_ui_state(
+    scene: bpy.types.Scene, rig_id: str, read_only: bool = False
+) -> "RIGUI_PG_RigUIState":
     """Récupère ou crée l'état UI pour un rig.
 
     Args:
@@ -17,9 +19,12 @@ def get_rig_ui_state(scene: bpy.types.Scene, rig_id: str) -> "RIGUI_PG_RigUIStat
             return state
 
     # Crée un nouvel état
-    state = scene.rigui_states.add()
-    state.rig_id = rig_id
-    return state
+    if read_only:
+        return None
+    else:
+        state = scene.rigui_states.add()
+        state.rig_id = rig_id
+        return state
 
 
 def get_box_expanded(
@@ -46,17 +51,16 @@ def get_box_expanded(
         return default
 
     # Cherche le rig state
-    for state in scene.rigui_states:
-        if state.rig_id == rig_id:
-            # Cherche la box
-            for box in state.boxes:
-                if box.name == box_name:
-                    return box.expanded
-            # Box pas trouvée → default
-            return default
-
-    # Rig state pas trouvé → default
-    return default
+    state = get_rig_ui_state(scene, rig_id, read_only=True)
+    if not state:
+        return default
+    else:
+        # Cherche la box
+        for box in state.boxes:
+            if box.name == box_name:
+                return box.expanded
+        # Box pas trouvée → default
+        return default
 
 
 def get_box_state(
@@ -96,3 +100,13 @@ def toggle_box(scene: bpy.types.Scene, rig_id: str, box_name: str) -> bool:
     current = get_box_expanded(scene, rig_id, box_name)
     set_box_expanded(scene, rig_id, box_name, not current)
     return not current
+
+
+def any_box_expanded(
+    scene: bpy.types.Scene, rig_id: str, prefix: str, read_only: bool = True
+) -> bool:
+    state = get_rig_ui_state(scene, rig_id, read_only)
+    if not state:
+        return False
+    else:
+        return any(box.expanded if box.name.startswith(prefix) else False for box in state.boxes)

@@ -33,7 +33,7 @@ class RIGUI_PT_masks(Panel):
             return
 
         layout = self.layout
-        col = layout.column(align=True)
+        col = layout.box().column(align=True)
         col.scale_y = 0.9
 
         # Header
@@ -145,7 +145,7 @@ class RIGUI_PT_masks(Panel):
             num_col, empty_space = self._get_layout_info(vg_name, side, vg_names)
 
             if num_col == 0:
-                row = col.row().split(factor=UI_RATIO)
+                row = col.row().split()
                 row.alignment = "LEFT"
                 row.label(text=part)
                 row = row.row()
@@ -183,9 +183,7 @@ class RIGUI_PT_masks(Panel):
                     emboss=False,
                 )
 
-            if empty_space == 1:
-                row.label(text="", icon="PANEL_CLOSE")
-            elif empty_space == 2:
+            if empty_space == 1 or empty_space == 2:
                 row.separator(factor=1.14)
 
     def _get_layout_info(self, vg_name, side, vg_names):

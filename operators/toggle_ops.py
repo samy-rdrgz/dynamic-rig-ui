@@ -9,6 +9,7 @@ from bpy.types import Operator
 from ..utils import (
     get_active_rig,
     get_box_state,
+    get_rig_data,
 )
 
 
@@ -27,8 +28,12 @@ class RIGUI_OT_toggle_controllers(Operator):
 
     def invoke(self, context, event):
         self.toggle_solo = False
+        self.is_shift_hold = False
+        self.is_alt_hold = False
         if event.ctrl == True:
             self.toggle_solo = True
+        if event.shift == True:
+            self.is_shift_hold = True
 
         return self.execute(context)
 
@@ -38,14 +43,22 @@ class RIGUI_OT_toggle_controllers(Operator):
             return {"CANCELLED"}
 
         data = json.loads(self.parts)
-        collections = [
-            bpy.data.armatures[d["armature"]].collections_all[d["collection"]] for d in data
-        ]
-        attr = "is_solo" if self.toggle_solo else "is_visible"
-        visible = not any(getattr(c, attr) for c in collections)
 
-        for c in collections:
-            setattr(c, attr, visible)
+        if self.is_shift_hold:
+            bpy.ops.rigui.toggle_box(
+                rig_id=get_rig_data(context, "rig_id"),
+                box_name=f"ui_ctrl_{data[0]['part']}",
+            )
+
+        else:
+            collections = [
+                armature.data.collections[d["collection"]] for d in data if d["collection"]
+            ]
+            attr = "is_solo" if self.toggle_solo else "is_visible"
+            visible = not any(getattr(c, attr) for c in collections)
+
+            for c in collections:
+                setattr(c, attr, visible)
 
         return {"FINISHED"}
 
@@ -110,8 +123,6 @@ class RIGUI_OT_toggle_all_boxes(Operator):
         parts = self.parts.split(",")
         # Trouve toutes les boxes avec ce préfixe
         matching_boxes = [get_box_state(scene, self.rig_id, self.prefix + i) for i in parts]
-        if not matching_boxes:
-            return {"CANCELLED"}
 
         # Détermine l'état cible
         expand = not any(box.expanded for box in matching_boxes)
