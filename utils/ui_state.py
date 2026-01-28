@@ -81,27 +81,6 @@ def get_box_state(
         return box
 
 
-def set_box_expanded(scene: bpy.types.Scene, rig_id: str, box_name: str, expanded: bool) -> None:
-    """Définit l'état expanded d'une box.
-
-    Args:
-        scene: La scène courante.
-        rig_id: L'identifiant du rig.
-        box_name: Le nom de la box.
-        expanded: True pour expand, False pour collapse.
-    """
-
-    get_box_state(scene, rig_id, box_name).expanded = expanded
-    return
-
-
-def toggle_box(scene: bpy.types.Scene, rig_id: str, box_name: str) -> bool:
-    """Toggle l'état d'une box et retourne le nouvel état."""
-    current = get_box_expanded(scene, rig_id, box_name)
-    set_box_expanded(scene, rig_id, box_name, not current)
-    return not current
-
-
 def any_box_expanded(
     scene: bpy.types.Scene, rig_id: str, prefix: str, read_only: bool = True
 ) -> bool:

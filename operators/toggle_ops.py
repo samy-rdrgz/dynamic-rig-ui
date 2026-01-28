@@ -1,11 +1,11 @@
 """Opérateurs pour toggle la visibilité des éléments."""
 
-import json
-
 import bpy
 from bpy.props import BoolProperty, StringProperty
 from bpy.types import Operator
 
+from ..config import RIG_ID
+from ..core import get_collections_by_part
 from ..utils import (
     get_active_rig,
     get_box_state,
@@ -13,116 +13,23 @@ from ..utils import (
 )
 
 
-class RIGUI_OT_toggle_controllers(Operator):
-    """Toggle la visibilité de plusieurs bone collections."""
-
-    bl_idname = "rigui.toggle_controllers"
-    bl_label = "Toggle Controllers"
-    bl_description = "Toggle visibility of several bone collections"
-    bl_options = {"UNDO", "INTERNAL"}
-
-    parts: StringProperty(name="Prefix to toggle")
-    toggle_solo: BoolProperty(default=False)
-    is_shift_hold: BoolProperty(default=False)
-    is_alt_hold: BoolProperty(default=False)
-
-    def invoke(self, context, event):
-        self.toggle_solo = False
-        self.is_shift_hold = False
-        self.is_alt_hold = False
-        if event.ctrl == True:
-            self.toggle_solo = True
-        if event.shift == True:
-            self.is_shift_hold = True
-
-        return self.execute(context)
-
-    def execute(self, context):
-        armature = get_active_rig(context)
-        if armature is None:
-            return {"CANCELLED"}
-
-        data = json.loads(self.parts)
-
-        if self.is_shift_hold:
-            bpy.ops.rigui.toggle_box(
-                rig_id=get_rig_data(context, "rig_id"),
-                box_name=f"ui_ctrl_{data[0]['part']}",
-            )
-
-        else:
-            collections = [
-                armature.data.collections[d["collection"]] for d in data if d["collection"]
-            ]
-            attr = "is_solo" if self.toggle_solo else "is_visible"
-            visible = not any(getattr(c, attr) for c in collections)
-
-            for c in collections:
-                setattr(c, attr, visible)
-
-        return {"FINISHED"}
-
-
-class RIGUI_OT_toggle_box(Operator):
-    """Toggle l'état expanded/collapsed d'une box."""
-
-    bl_idname = "rigui.toggle_box"
-    bl_label = "Toggle Box"
-    bl_description = "Toggle box expanded/collapsed state"
-    bl_options = {"INTERNAL"}  # Pas d'UNDO pour l'UI
-
-    rig_id: StringProperty()
-    box_name: StringProperty()
-
-    def execute(self, context):
-        scene = context.scene
-
-        # Trouve ou crée le rig state
-        rig_state = None
-        for state in scene.rigui_states:
-            if state.rig_id == self.rig_id:
-                rig_state = state
-                break
-
-        if rig_state is None:
-            rig_state = scene.rigui_states.add()
-            rig_state.rig_id = self.rig_id
-
-        # Trouve ou crée la box
-        box_state = None
-        for box in rig_state.boxes:
-            if box.name == self.box_name:
-                box_state = box
-                break
-
-        if box_state is None:
-            box_state = rig_state.boxes.add()
-            box_state.name = self.box_name
-            box_state.expanded = True
-
-        # Toggle !
-        box_state.expanded = not box_state.expanded
-
-        return {"FINISHED"}
-
-
-class RIGUI_OT_toggle_all_boxes(Operator):
+class RIGUI_OT_toggle_boxes(Operator):
     """Toggle toutes les boxes avec un certain préfixe."""
 
-    bl_idname = "rigui.toggle_all_boxes"
+    bl_idname = "rigui.toggle_boxes"
     bl_label = "Toggle All Boxes"
     bl_description = "Toggle all boxes expanded/collapsed state"
     bl_options = {"INTERNAL"}
 
-    rig_id: StringProperty()
     prefix: StringProperty()  # ex: "ui_ctrl_" ou "ui_prop_"
     parts: StringProperty()
 
     def execute(self, context):
+        rig_id = str(get_rig_data(context, RIG_ID))
         scene = context.scene
         parts = self.parts.split(",")
         # Trouve toutes les boxes avec ce préfixe
-        matching_boxes = [get_box_state(scene, self.rig_id, self.prefix + i) for i in parts]
+        matching_boxes = [get_box_state(scene, rig_id, self.prefix + i) for i in parts]
 
         # Détermine l'état cible
         expand = not any(box.expanded for box in matching_boxes)
@@ -174,10 +81,40 @@ class RIGUI_OT_toggle_masks(Operator):
         return {"FINISHED"}
 
 
-# Classes à enregistrer
-classes = (
-    RIGUI_OT_toggle_controllers,
-    RIGUI_OT_toggle_box,
-    RIGUI_OT_toggle_all_boxes,
-    RIGUI_OT_toggle_masks,
-)
+class RIGUI_OT_ctrl_box_actions(Operator):
+    """Action sur toutes les collections d'une part."""
+
+    bl_idname = "rigui.ctrl_box_actions"
+    bl_label = "Action on Part"
+    bl_options = {"UNDO", "INTERNAL"}
+
+    prefix: StringProperty(default="ui_ctrl_")
+    parts: StringProperty()  # "ARM","LEG", etc.
+
+    is_ctrl_hold: BoolProperty(default=False)
+    is_shift_hold: BoolProperty(default=False)
+    is_alt_hold: BoolProperty(default=False)
+
+    def invoke(self, context, event):
+        self.is_ctrl_hold = event.ctrl
+        self.is_shift_hold = event.shift
+        self.is_alt_hold = event.alt
+
+        return self.execute(context)
+
+    def execute(self, context):
+        armature = get_active_rig(context)
+        if self.is_shift_hold:
+            bpy.ops.rigui.toggle_boxes(prefix=self.prefix, parts=self.parts)
+            return {"FINISHED"}
+        for p in self.parts.split(","):
+            collections = get_collections_by_part(armature, p)
+            collections = [armature.data.collections[c.name] for c in collections if c.name]
+
+            attr = "is_solo" if self.is_ctrl_hold else "is_visible"
+            visible = not any(getattr(c, attr) for c in collections)
+
+            for c in collections:
+                setattr(c, attr, visible)
+
+        return {"FINISHED"}

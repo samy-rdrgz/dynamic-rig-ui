@@ -4,8 +4,15 @@ import re
 
 from bpy.types import Panel
 
-from ..config import NO_BODY_PREFIX, UI_RATIO_PROPS
-from ..utils import get_active_rig, get_box_expanded, get_rig_data, is_valid_rig
+from ..config import NO_BODY_PREFIX, PROPERTY_BONE, RIG_ID, UI_RATIO_PROPS
+from ..core import get_rig_cache
+from ..utils import (
+    any_box_expanded,
+    get_active_rig,
+    get_box_expanded,
+    get_rig_data,
+    is_valid_rig,
+)
 
 
 class RIGUI_PT_customprops(Panel):
@@ -30,28 +37,32 @@ class RIGUI_PT_customprops(Panel):
 
     def draw(self, context):
         armature = get_active_rig(context)
-        b_name = get_rig_data(context, "prop_posebone_name")
+        rig_id = str(get_rig_data(context, RIG_ID))
+        property_bone_name = get_rig_data(context, PROPERTY_BONE)
         layout = self.layout
         panel = layout.column()
         try:
-            bone = armature.pose.bones[b_name]
+            property_bone = armature.pose.bones[property_bone_name]
         except (AttributeError, KeyError, TypeError):
-            bone = None
-        if not bone:
+            property_bone = None
+        if not property_bone:
             panel.alert = True
             panel.label(text="Your property posebone is not existing", icon="ERROR")
-            panel.prop(context.active_object.data, '["prop_posebone_name"]', text="Prop bone")
+            panel.prop(
+                context.active_object.data, f'["{PROPERTY_BONE}"]', text="Prop bone"
+            )
+            return None
+        cache = get_rig_cache(armature)
 
-        else:
-            # Récupère et trie les propriétés
-            props_data = self._get_sorted_properties(bone)
+        # Récupère et trie les propriétés
+        props_data = self._get_sorted_properties(property_bone)
 
-            # Header
-            self._draw_header(context, panel, armature)
-            panel.separator(type="LINE", factor=0.2)
+        # Header
+        self._draw_header(context, panel, armature, rig_id, props_data)
+        panel.separator(type="LINE", factor=0.2)
 
-            # Contenu
-            self._draw_properties(context, panel, armature, bone, props_data)
+        # Contenu
+        self._draw_properties(context, panel, armature, property_bone, props_data)
 
     def _get_sorted_properties(self, bone):
         """Récupère les propriétés triées par ordre de priorité."""
@@ -99,7 +110,7 @@ class RIGUI_PT_customprops(Panel):
 
         return props_data
 
-    def _draw_header(self, context, panel, armature):
+    def _draw_header(self, context, panel, armature, rig_id, props_data):
         """Dessine l'en-tête du panel."""
         bloc = panel.row()
 
@@ -107,22 +118,25 @@ class RIGUI_PT_customprops(Panel):
         row1 = row.row()
         row1.alignment = "LEFT"
 
-        # Toggle expand/collapse
-        for rig_state in context.scene.rigui_states:
-            if rig_state.rig_id == get_rig_data(context, "rig_id"):
-                rig = rig_state
-                break
-        if rig:
-            any_expanded = any([b.expanded for b in rig.boxes if b.name.startswith("ui_ctrl_")])
-        else:
-            any_expanded = True
-        icon = "DOWNARROW_HLT" if any_expanded else "RIGHTARROW"
-        row1.operator(
-            f"{str(get_rig_data(context, 'rig_name')).lower()}.toggle_boxes",
+        parts = set()
+        for d in props_data:
+            if d["part"] not in parts:
+                parts.add(d["part"])
+
+        icon = (
+            "DOWNARROW_HLT"
+            if any_box_expanded(context.scene, rig_id, "ui_ctrl_", read_only=True)
+            else "RIGHTARROW"
+        )
+
+        op = row1.operator(
+            "rigui.toggle_boxes",
             emboss=False,
             text="",
             icon=icon,
         )
+        op.prefix = "ui_prop_"
+        op.parts = ",".join(parts)
 
         row1.alert = True
         row1.label(text="PROPERTIES")
@@ -141,7 +155,7 @@ class RIGUI_PT_customprops(Panel):
 
         # Récupère la liste des noms pour vérifier les côtés
         prop_names = [p["name"] for p in props_data]
-
+        rig_id = str(get_rig_data(context, RIG_ID))
         for data in props_data:
             prop_name = data["name"]
             part = data["part"]
@@ -158,19 +172,17 @@ class RIGUI_PT_customprops(Panel):
                 titre.scale_y = 0.6
                 titre.alignment = "LEFT"
 
-                expanded = get_box_expanded(
-                    context.scene, get_rig_data(context, "rig_id"), f"ui_prop_{part}"
-                )
+                expanded = get_box_expanded(context.scene, rig_id, f"ui_prop_{part}")
                 icon = "DOWNARROW_HLT" if expanded else "RIGHTARROW"
-                rig_id = get_rig_data(context, "rig_id")
+
                 op = titre.operator(
-                    "rigui.toggle_box",
+                    "rigui.toggle_boxes",
                     emboss=False,
                     text=part,
                     icon=icon,
                 )
-                op.rig_id = rig_id
-                op.box_name = f"ui_prop_{part}"
+                op.prefix = "ui_prop_"
+                op.parts = part
 
                 current_part = part
                 if expanded:
@@ -179,9 +191,7 @@ class RIGUI_PT_customprops(Panel):
                     bloc.separator(factor=2)
 
             # Contenu (si expanded)
-            if not get_box_expanded(
-                context.scene, get_rig_data(context, "rig_id"), f"ui_prop_{part}"
-            ):
+            if not get_box_expanded(context.scene, rig_id, f"ui_prop_{part}"):
                 continue
 
             # Détermine la colonne et l'espace vide

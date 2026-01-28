@@ -19,6 +19,7 @@ import contextlib
 
 import bpy
 
+from .core import classes as core_classes
 from .operators import classes as operator_classes
 from .panels import classes as panel_classes
 from .properties import RIGUI_PG_BoxState, RIGUI_PG_RigUIState, RIGUI_PG_settings
@@ -29,17 +30,16 @@ _classes = (
     RIGUI_PG_RigUIState,
     RIGUI_PG_settings,
     *operator_classes,
+    *core_classes,
     *panel_classes,
 )
 
 
 def register():
     """Enregistre toutes les classes de l'addon."""
+    bpy.types.Scene.input_name = bpy.props.StringProperty(name="Rig name")
     for cls in _classes:
         bpy.utils.register_class(cls)
-
-    # Enregistre la propriété sur Scene
-    bpy.types.Scene.rigui_rig_name = bpy.props.StringProperty(name="Rig name")
 
     bpy.types.Scene.rigui_settings = bpy.props.PointerProperty(type=RIGUI_PG_settings)
     bpy.types.Scene.rigui_states = bpy.props.CollectionProperty(type=RIGUI_PG_RigUIState)

@@ -6,6 +6,8 @@ import string
 from bpy.props import StringProperty
 from bpy.types import Operator
 
+from ..config import ACTIVE, PROPERTY_BONE, RIG_ID, RIG_NAME
+
 
 class RIGUI_OT_new(Operator):
     """Recharge l'UI avec l'ordre des panels choisi."""
@@ -20,12 +22,12 @@ class RIGUI_OT_new(Operator):
     def execute(self, context):
         obj = context.active_object
 
-        obj.data["has_dyn_rigui"] = True
-        obj.data["rig_name"] = self.rig_name
+        obj.data[ACTIVE] = True
+        obj.data[RIG_NAME] = self.rig_name
 
         random_id = "".join(random.choices(string.ascii_letters, k=12))
-        obj.data["rig_id"] = random_id
-        obj.data["prop_posebone_name"] = "PROPERTIES"
+        obj.data[RIG_ID] = random_id
+        obj.data[PROPERTY_BONE] = "PROPERTIES"
 
         return {"FINISHED"}
 

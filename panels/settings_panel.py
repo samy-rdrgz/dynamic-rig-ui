@@ -4,6 +4,7 @@ import re
 
 from bpy.types import Panel
 
+from ..config import PROPERTY_BONE, RIG_ID, RIG_NAME
 from ..utils import get_active_rig, is_valid_rig
 
 
@@ -28,19 +29,19 @@ class RIGUI_PT_settings(Panel):
         if is_valid_rig(context.active_object):
             rig = get_active_rig(context)
             col.separator(type="LINE")
-            col.label(text=f"Name : {rig.data['rig_name']}")
-            col.label(text=f"ID : {rig.data['rig_id']}")
-            col.prop(context.active_object.data, '["prop_posebone_name"]', text="Prop bone")
+            col.label(text=f"Name : {rig.data[RIG_NAME]}")
+            col.label(text=f"ID : {rig.data[RIG_ID]}")
+            col.prop(context.active_object.data, f'["{PROPERTY_BONE}"]', text="Prop bone")
 
         else:
             col.prop(
                 context.scene,
-                "rigui_rig_name",
+                "input_name",
                 text="",
                 placeholder="Rig ID Name",
                 expand=True,
             )
-            name = context.scene.rigui_rig_name
+            name = context.scene.input_name
             warnings = self._check_name(context, name)
 
             btn = col.row()

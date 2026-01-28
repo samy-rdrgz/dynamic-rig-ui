@@ -4,9 +4,23 @@
 # RIG IDENTIFICATION
 # =============================================================================
 # Set a rig ID in your armature custom properties using a string
-RIG_ID = "Input_rig_id"
-RIG_NAME = "Input_rig_name"
-PROPERTY_BONE = "PROPERTIES"
+RIG_ID = "drigui_rig_id"
+RIG_NAME = "drigui_rig_name"
+PROPERTY_BONE = "drigui_properties"
+ACTIVE = "drigui_has_ui"
+
+
+# =============================================================================
+# PARSING CONFIGURATION
+# =============================================================================
+import re
+
+COLLECTION_PATTERN = re.compile(
+    r"^(?P<part>[A-Z]+)"
+    r"(?:_(?P<sub_part>[A-Z0-9_]+))?"
+    r"(?:(?P<side>\.[LMRXYZ])|(?P<custom_side>\.\d+)|(?P<col_type>:[A-Z]+))?$"
+)
+
 
 # =============================================================================
 # BODY PARTS CONFIGURATION

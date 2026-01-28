@@ -1,11 +1,9 @@
 """Utilitaires pour la manipulation du rig."""
 
-import re
-
 import bpy
 from mathutils import Matrix
 
-from ..config import PROPERTY_BONE
+from ..config import ACTIVE, PROPERTY_BONE
 
 
 def get_active_rig(context: bpy.types.Context) -> bpy.types.Object | None:
@@ -46,7 +44,7 @@ def is_valid_rig(obj: bpy.types.Object | None) -> bool:
         return False
 
     try:
-        return obj.data.get("has_dyn_rigui")
+        return obj.data.get(ACTIVE)
     except (AttributeError, KeyError, TypeError):
         return False
 
@@ -83,21 +81,6 @@ def get_property_bone(armature: bpy.types.Object) -> bpy.types.PoseBone | None:
     return armature.pose.bones.get(PROPERTY_BONE)
 
 
-def get_bone_collections_list(armature: bpy.types.Object) -> list:
-    """Retourne la liste des collections sous forme de string multiligne.
-
-    Utilisé pour le parsing regex des collections.
-
-    Args:
-        armature: L'armature source.
-
-    Returns:
-        List avec les noms des collections.
-    """
-    names = [col.name for col in armature.data.collections]
-    return names
-
-
 def get_matrix_with_offset(
     source_bone: bpy.types.PoseBone,
     target_bone: bpy.types.PoseBone,
@@ -122,56 +105,11 @@ def get_matrix_with_offset(
     return source_bone.matrix @ offset
 
 
-def get_collections_dict(armature: bpy.types.Object) -> list:
-    collections_str = "\n" + "\n".join(get_bone_collections_list(armature))
-    pattern = re.compile(
-        re.compile(
-            r"^(?P<part>[A-Z]+)"
-            r"(?:_(?P<sub_part>[A-Z0-9_]+))?"
-            r"(?:(?P<side>\.[LMRXYZ])|(?P<custom_side>\.\d+)|(?P<type>:[A-Z]+))?$",
-            re.MULTILINE,
-        )
-    )
-
-    matches = pattern.finditer(collections_str)
-    data = [{"collection": m.group(0), **m.groupdict()} for m in matches]
-    parts = []
-    for d in data:
-        if d["part"] not in parts:
-            parts.append(d["part"])
-    ordered = [[] for i in parts]
-    ordered_names = []
-    for i, p in enumerate(parts):
-        for d in data:
-            if d["part"] == p:
-                if d["side"] is None and d["collection"] not in ordered_names:
-                    ordered[i].append(d)
-                    ordered_names.append(d["collection"])
-                else:
-                    if d["collection"] in ordered_names:
-                        continue
-                    for s in (".L", ".M", ".R"):
-                        f = find_dict(data, d["collection"].split(".")[0] + s)
-                        if f and f["collection"] not in ordered_names:
-                            ordered[i].append(f)
-                            ordered_names.append(f["collection"])
-                        elif s != ".M":
-                            empty = dict(d)
-                            empty["collection"] = None
-                            empty["side"] = s
-                            ordered[i].append(empty)
-    return ordered
-
-
-def find_dict(list: list, value: str) -> dict | None:
-    for d in list:
-        if d["collection"] == value:
-            return d
-    return None
-
-
 def any_collection(
-    armature: bpy.types.Object, data: list, prop: str = "is_visible", flatten: bool = False
+    armature: bpy.types.Object,
+    data: list,
+    prop: str = "is_visible",
+    flatten: bool = False,
 ) -> bool:
     """
     data : list (or list de list) de dictionnaires
@@ -180,21 +118,8 @@ def any_collection(
     if flatten:
         data = [d for p in data for d in p]
     a = any(
-        getattr(armature.data.collections[col["collection"]], prop, False)
+        getattr(armature.data.collections[col.name], prop, False)
         for col in data
-        if col["collection"] and not col["type"]
+        if col.name and not col.c_type
     )
     return a
-
-
-def encode_json(list: list, flatten: bool = False) -> str:
-    if flatten:
-        list = [d for p in list for d in p]
-    text = (
-        str(list)
-        .replace("'", '"')
-        .replace("False", "false")
-        .replace("True", "true")
-        .replace("None", "null")
-    )
-    return text
