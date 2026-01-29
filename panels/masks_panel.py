@@ -4,7 +4,7 @@ import re
 
 from bpy.types import Panel
 
-from ..config import NO_BODY_PREFIX, PREFIX_ORDER, UI_RATIO
+from ..config import NO_BODY_PREFIX, PREFIX_ORDER
 from ..utils import get_active_rig, is_valid_rig
 
 
@@ -12,15 +12,36 @@ class RIGUI_PT_masks(Panel):
     """Panel pour toggle les modifiers mask des meshes enfants."""
 
     bl_idname = "RIGUI_PT_masks"
-    bl_label = "Dynamic RigUI - Masks"
+    bl_label = ""
     bl_category = "Item"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
+    bl_options = {
+        "HEADER_LAYOUT_EXPAND",
+    }
 
     @classmethod
     def poll(cls, context):
         armature = get_active_rig(context)
         return is_valid_rig(armature)
+
+    def draw_header(self, context):
+        layout = self.layout.row(align=True)
+        layout.alignment = "LEFT"
+        armature = get_active_rig(context)
+        masks_data = self._collect_masks(armature)
+        layout.label(icon="BLANK1")
+        all_visible = all(
+            m["modifier"].show_viewport
+            for m in masks_data
+            if m["modifier"].vertex_group.startswith("MASK_")
+        )
+        layout.operator(
+            "rigui.toggle_masks",
+            emboss=False,
+            text="MASKS",
+            icon="HIDE_ON" if all_visible else "HIDE_OFF",
+        ).param = "all"
 
     def draw(self, context):
         armature = get_active_rig(context)
@@ -33,12 +54,8 @@ class RIGUI_PT_masks(Panel):
             return
 
         layout = self.layout
-        col = layout.box().column(align=True)
-        col.scale_y = 0.9
 
-        # Header
-        self._draw_header(col, masks_data)
-        col.separator(type="LINE")
+        col = layout.column(align=True).box()
 
         # Contenu
         self._draw_masks(col, armature, masks_data)
@@ -87,35 +104,11 @@ class RIGUI_PT_masks(Panel):
 
         return masks_data
 
-    def _draw_header(self, col, masks_data):
-        """Dessine l'en-tête avec toggle global."""
-        row = col.row().split(factor=UI_RATIO)
-        row.alignment = "LEFT"
-        row.alert = True
-        row.label(text="ALL MASKS")
-        row.alert = False
-
-        row2 = row.row()
-        row2.alignment = "RIGHT"
-        row2.separator(factor=1.14)
-
-        # Toggle all
-        all_visible = all(
-            m["modifier"].show_viewport
-            for m in masks_data
-            if m["modifier"].vertex_group.startswith("MASK_")
-        )
-        row2.operator(
-            "rigui.toggle_masks",
-            emboss=False,
-            text="",
-            icon="HIDE_ON" if all_visible else "HIDE_OFF",
-        ).param = "all"
-
-        row2.separator(factor=1.14)
-
     def _draw_masks(self, col, armature, masks_data):
         """Dessine les toggles de masks."""
+
+        col.scale_y = 0.6
+        col.separator(factor=0.1)
         # Compte les occurrences de chaque vertex group
         vg_counts = {}
         vg_names = [m["vg_name"] for m in masks_data]
@@ -145,24 +138,29 @@ class RIGUI_PT_masks(Panel):
             num_col, empty_space = self._get_layout_info(vg_name, side, vg_names)
 
             if num_col == 0:
-                row = col.row().split()
-                row.alignment = "LEFT"
-                row.label(text=part)
-                row = row.row()
-                row.alignment = "RIGHT"
+                _row = col.row(align=True)
 
+                row_b = _row.row(align=True)
+                row_b.alignment = "LEFT"
+                row_b.scale_x = 0.9
+                row_b.label(text=" ")
+                row_l = _row.row(align=True)
+                row_l.alignment = "CENTER"
+                row_l.label(text=f"  {part}")
+            if num_col == 1:
+                row_b.label(icon="BLANK1")
             if empty_space == -1:
-                row.label(text="", icon="PANEL_CLOSE")
+                row_b.label(text="", icon="PANEL_CLOSE")
 
             # Toggle ou operator selon le nombre d'occurrences
             if vg_counts[vg_name] > 1:
                 if empty_space == 2:
-                    row.separator(factor=1.14)
+                    row_b.label(icon="BLANK1")
 
                 any_visible = any(
                     m["modifier"].show_viewport for m in masks_data if m["vg_name"] == vg_name
                 )
-                row.operator(
+                row_b.operator(
                     "rigui.toggle_masks",
                     emboss=False,
                     text="",
@@ -172,9 +170,9 @@ class RIGUI_PT_masks(Panel):
                 processed_vgs.add(vg_name)
             else:
                 if empty_space == 2:
-                    row.separator(factor=1.14)
+                    row_b.label(icon="BLANK1")
 
-                row.prop(
+                row_b.prop(
                     modifier,
                     "show_viewport",
                     text="",
@@ -184,7 +182,8 @@ class RIGUI_PT_masks(Panel):
                 )
 
             if empty_space == 1 or empty_space == 2:
-                row.separator(factor=1.14)
+                row_b.label(icon="BLANK1")
+        col.separator(factor=0.1)
 
     def _get_layout_info(self, vg_name, side, vg_names):
         """Détermine la colonne et l'espace vide."""

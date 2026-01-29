@@ -19,7 +19,7 @@ class RIGUI_PT_customprops(Panel):
     """Panel affichant les propriétés custom organisées par catégorie."""
 
     bl_idname = "RIGUI_PT_customprops"
-    bl_label = "Dynamic RigUI - Properties"
+    bl_label = ""
     bl_category = "Item"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
@@ -48,18 +48,12 @@ class RIGUI_PT_customprops(Panel):
         if not property_bone:
             panel.alert = True
             panel.label(text="Your property posebone is not existing", icon="ERROR")
-            panel.prop(
-                context.active_object.data, f'["{PROPERTY_BONE}"]', text="Prop bone"
-            )
+            panel.prop(context.active_object.data, f'["{PROPERTY_BONE}"]', text="Prop bone")
             return None
         cache = get_rig_cache(armature)
 
         # Récupère et trie les propriétés
         props_data = self._get_sorted_properties(property_bone)
-
-        # Header
-        self._draw_header(context, panel, armature, rig_id, props_data)
-        panel.separator(type="LINE", factor=0.2)
 
         # Contenu
         self._draw_properties(context, panel, armature, property_bone, props_data)
@@ -110,15 +104,15 @@ class RIGUI_PT_customprops(Panel):
 
         return props_data
 
-    def _draw_header(self, context, panel, armature, rig_id, props_data):
+    def draw_header(self, context):
         """Dessine l'en-tête du panel."""
-        bloc = panel.row()
-
-        row = bloc.split(align=True, factor=UI_RATIO_PROPS)
-        row1 = row.row()
-        row1.alignment = "LEFT"
-
         parts = set()
+
+        armature = get_active_rig(context)
+        rig_id = str(get_rig_data(context, RIG_ID))
+        property_bone_name = get_rig_data(context, PROPERTY_BONE)
+
+        props_data = self._get_sorted_properties(armature.pose.bones[property_bone_name])
         for d in props_data:
             if d["part"] not in parts:
                 parts.add(d["part"])
@@ -129,26 +123,18 @@ class RIGUI_PT_customprops(Panel):
             else "RIGHTARROW"
         )
 
-        op = row1.operator(
+        op = self.layout.operator(
             "rigui.toggle_boxes",
             emboss=False,
-            text="",
+            text="PROPERTIES",
             icon=icon,
         )
         op.prefix = "ui_prop_"
         op.parts = ",".join(parts)
 
-        row1.alert = True
-        row1.label(text="PROPERTIES")
-
-        # Labels de colonnes
-        row2 = row.row()
-        row2.active = False
-        row2.label(text="LEFT")
-        row2.label(text="RIGHT")
-
     def _draw_properties(self, context, panel, armature, bone, props_data):
         """Dessine les propriétés groupées."""
+        panel.scale_y = 0.8
         current_part = None
         bloc = None
         b_row = None
@@ -164,12 +150,12 @@ class RIGUI_PT_customprops(Panel):
 
             # Nouveau groupe ?
             if current_part != part:
-                panel.separator(factor=1, type="SPACE")
-                bloc = panel.row().column(align=True)
+                panel.separator(factor=0.1)
+                bloc = panel.box().column(align=True)
 
                 # Titre du groupe
                 titre = bloc.row()
-                titre.scale_y = 0.6
+                titre.scale_y = 1.3
                 titre.alignment = "LEFT"
 
                 expanded = get_box_expanded(context.scene, rig_id, f"ui_prop_{part}")
@@ -200,8 +186,8 @@ class RIGUI_PT_customprops(Panel):
             if num_col == 0 or side is None:
                 b_row = p_bloc.row(align=True)
                 split = b_row.split(align=True, factor=UI_RATIO_PROPS)
-                split.alignment = "RIGHT"
-                split.label(text=sub_part)
+                split.alignment = "LEFT"
+                split.label(text=f" {sub_part}")
                 b_row = split.row(align=True)
 
                 if empty_space == -1:

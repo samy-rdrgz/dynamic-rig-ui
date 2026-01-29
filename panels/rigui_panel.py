@@ -22,10 +22,13 @@ class RIGUI_PT_rigui(Panel):
     """Panel affichant les contrôleurs par catégorie."""
 
     bl_idname = "RIGUI_PT_rigui"
-    bl_label = "Dynamic RigUI - Controllers"
+    bl_label = ""
     bl_category = "Item"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
+    bl_options = {
+        "HEADER_LAYOUT_EXPAND",
+    }
 
     @classmethod
     def poll(cls, context):
@@ -35,6 +38,67 @@ class RIGUI_PT_rigui(Panel):
         if context.active_object.type != "ARMATURE":
             return False
         return is_valid_rig(armature)
+
+    def draw_header(self, context):
+        """Dessine l'en-tête avec les toggles globaux."""
+        armature = get_active_rig(context)
+        rig_id = str(get_rig_data(context, RIG_ID))
+        property_bone_name = get_rig_data(context, PROPERTY_BONE)
+
+        try:
+            property_bone = armature.pose.bones[property_bone_name]
+        except (AttributeError, KeyError, TypeError):
+            property_bone = None
+        if not property_bone:
+            self._draw_error(context)
+            return None
+        cache = get_rig_cache(armature)
+        hierarchy = cache.hierarchy
+
+        layout = self.layout
+        layout = layout.row(align=True)
+
+        layout.alignment = "LEFT"
+
+        # Dessine chaque groupe
+        any_solo = any(
+            armature.data.collections[c.name].is_solo for p in hierarchy for c in p if c.name
+        )
+
+        # Toggle visibilité de tous les controllers
+        parts_str = ",".join(cache.parts)
+        btn_1 = layout.row(align=True)
+        btn_1.active = False
+        icon = (
+            "DOWNARROW_HLT"
+            if any_box_expanded(context.scene, rig_id, "ui_ctrl_", read_only=True)
+            else "RIGHTARROW"
+        )
+        op = btn_1.operator(
+            "rigui.toggle_boxes",
+            emboss=False,
+            text="",
+            icon=icon,
+        )
+        op.prefix = "ui_ctrl_"
+        op.parts = parts_str
+
+        any_visible = any(
+            armature.data.collections[c.name].is_solo
+            if any_solo
+            else armature.data.collections[c.name].is_visible
+            for b in hierarchy
+            for c in b
+            if c.name != ""
+        )
+
+        op = layout.operator(
+            "rigui.ctrl_box_actions",
+            emboss=False,
+            text="CONTROLLERS",
+            icon=ICONS[int(any_solo)][int(any_visible)],
+        )
+        op.parts = parts_str
 
     def draw(self, context):
         armature = get_active_rig(context)
@@ -53,6 +117,7 @@ class RIGUI_PT_rigui(Panel):
 
         layout = self.layout
         panel = layout.column()
+        panel.scale_y = 0.8
 
         # Dessine chaque groupe
         any_solo = any(
@@ -60,8 +125,7 @@ class RIGUI_PT_rigui(Panel):
         )
 
         # Header avec toggle global
-        self._draw_header(context, panel, armature, rig_id, cache, hierarchy, any_solo)
-        panel.separator(factor=1)
+        # self._draw_header(context, panel, armature, rig_id, cache, hierarchy, any_solo)
 
         for b in hierarchy:
             self._draw_group(
@@ -80,42 +144,6 @@ class RIGUI_PT_rigui(Panel):
         panel.alert = True
         panel.label(text="Your property posebone is not existing", icon="ERROR")
         panel.prop(context.active_object.data, '["prop_posebone_name"]', text="Prop bone")
-
-    def _draw_header(self, context, panel, armature, rig_id, cache, hierarchy, any_solo):
-        """Dessine l'en-tête avec les toggles globaux."""
-        title = panel.box().row(align=False)
-        title.scale_y = 0.8
-        # Toggle visibilité de tous les controllers
-
-        any_visible = any(
-            armature.data.collections[c.name].is_solo
-            if any_solo
-            else armature.data.collections[c.name].is_visible
-            for b in hierarchy
-            for c in b
-            if c.name != ""
-        )
-        parts_str = ",".join(cache.parts)
-        op = title.operator(
-            "rigui.ctrl_box_actions",
-            emboss=False,
-            text="CONTROLLERS",
-            icon=ICONS[int(any_solo)][int(any_visible)],
-        )
-        op.parts = parts_str
-        icon = (
-            "DOWNARROW_HLT"
-            if any_box_expanded(context.scene, rig_id, "ui_ctrl_", read_only=True)
-            else "RIGHTARROW"
-        )
-        op = title.operator(
-            "rigui.toggle_boxes",
-            emboss=False,
-            text="",
-            icon=icon,
-        )
-        op.prefix = "ui_ctrl_"
-        op.parts = parts_str
 
     def _draw_group(self, context, panel, armature, rig_id, property_bone, box_data, any_solo):
         box = panel.box().column(align=True)
@@ -162,6 +190,8 @@ class RIGUI_PT_rigui(Panel):
         op.parts = box_data[0].part
 
     def _draw_group_content(self, armature, box, property_bone, box_data, any_solo):
+        box = box.column(align=True)
+        box.scale_y = 1.3
         col_index = 0
         for r in box_data:
             if r.is_prop:
