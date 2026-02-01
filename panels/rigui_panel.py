@@ -128,16 +128,17 @@ class RIGUI_PT_rigui(Panel):
         # self._draw_header(context, panel, armature, rig_id, cache, hierarchy, any_solo)
 
         for b in hierarchy:
-            self._draw_group(
-                context,
-                panel,
-                armature,
-                rig_id,
-                property_bone,
-                b,
-                any_solo,
-            )
-            panel.separator(factor=0.1)
+            if len(b) > 1 or not b[0].is_order:
+                self._draw_group(
+                    context,
+                    panel,
+                    armature,
+                    rig_id,
+                    property_bone,
+                    b,
+                    any_solo,
+                )
+                panel.separator(factor=0.1)
 
     def _draw_error(self, context):
         panel = self.layout.column()

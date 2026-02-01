@@ -1,6 +1,5 @@
 """Panels de l'addon Rig UI."""
 
-from .main_panel import RIGUI_PT_main
 from .masks_panel import RIGUI_PT_masks
 from .props_panel import RIGUI_PT_customprops
 from .rigui_panel import RIGUI_PT_rigui

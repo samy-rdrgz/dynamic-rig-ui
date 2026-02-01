@@ -38,6 +38,7 @@ _classes = (
 def register():
     """Enregistre toutes les classes de l'addon."""
     bpy.types.Scene.input_name = bpy.props.StringProperty(name="Rig name")
+    bpy.types.Scene.column_factor = bpy.props.FloatProperty(name="", min=0, max=1)
     for cls in _classes:
         bpy.utils.register_class(cls)
 

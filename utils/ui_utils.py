@@ -32,3 +32,17 @@ def refresh_ui() -> None:
     """Force le rafraîchissement de toutes les zones de l'interface."""
     for area in bpy.context.screen.areas:
         area.tag_redraw()
+
+
+import json
+
+
+def get_enum_mapping(pose_bone, prop):
+    ui = pose_bone.id_properties_ui(prop).as_dict()
+    desc = ui.get("description", "")
+
+    try:
+        data = json.loads(desc)
+        return {int(k): v for k, v in data.items()}
+    except Exception:
+        return {}

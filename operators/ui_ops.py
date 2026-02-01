@@ -3,10 +3,11 @@
 import contextlib
 
 import bpy
-from bpy.props import StringProperty
+from bpy.props import IntProperty, StringProperty
 from bpy.types import Operator
 
 from ..config import RIG_NAME
+from ..utils import get_active_rig, get_enum_mapping, get_property_bone
 
 
 class WM_OT_text_popup(Operator):
@@ -110,6 +111,79 @@ class RIGUI_OT_reload_ui(Operator):
                 bpy.utils.register_class(panel)
 
         return {"FINISHED"}
+
+
+class RIGUI_OT_set_int_prop(Operator):
+    bl_idname = "rigui.set_int_prop"
+    bl_label = ""
+    bl_options = {"UNDO", "INTERNAL"}
+
+    prop_name: StringProperty()
+    value: IntProperty()
+
+    def execute(self, context):
+        armature = get_active_rig(context)
+        pb = get_property_bone(armature)
+        pb[self.prop_name] = self.value
+
+        # Force la mise à jour des drivers
+        armature.update_tag()
+        context.view_layer.depsgraph.update()
+
+        # Force redraw du viewport
+        for area in context.screen.areas:
+            if area.type == "VIEW_3D":
+                area.tag_redraw()
+
+        return {"FINISHED"}
+
+
+class RIGUI_OT_enum_popup(Operator):
+    bl_idname = "rigui.enum_popup"
+    bl_label = ""
+    bl_options = {"INTERNAL"}
+
+    prop_name: StringProperty()
+
+    def invoke(self, context, event):
+        if event.ctrl:
+            # Popup avec la prop brute
+            return context.window_manager.invoke_popup(self, width=200)
+
+        # Menu normal
+        return self.execute(context)
+
+    def execute(self, context):
+        # Stocke pour le callback
+        RIGUI_OT_enum_popup._current_prop = self.prop_name
+
+        # Ouvre le menu
+        context.window_manager.popup_menu(self.draw_menu, title=self.prop_name)
+        return {"FINISHED"}
+
+    def draw(self, context):
+        """Popup Ctrl+Clic : prop brute éditable."""
+        layout = self.layout
+        pb = get_property_bone(get_active_rig(context))
+        layout.prop(pb, f'["{self.prop_name}"]', text=self.prop_name)
+
+    @staticmethod
+    def draw_menu(menu, context):
+        layout = menu.layout
+        pb = get_property_bone(get_active_rig(context))
+        prop_name = RIGUI_OT_enum_popup._current_prop
+        mapping = get_enum_mapping(pb, prop_name)
+        current = pb.get(prop_name, 0)
+
+        for value, label in mapping.items():
+            op = layout.operator(
+                "rigui.set_int_prop", text=label, icon="REC" if value == current else "BLANK1"
+            )
+            op.prop_name = prop_name
+            op.value = value
+
+
+# Pas besoin de RIGUI_MT_enum_menu du tout !
 
 
 # Classes à enregistrer

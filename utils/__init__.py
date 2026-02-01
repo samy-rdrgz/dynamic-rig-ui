@@ -14,7 +14,7 @@ from .ui_state import (
     get_box_state,
     get_rig_ui_state,
 )
-from .ui_utils import refresh_ui, show_messagebox
+from .ui_utils import get_enum_mapping, refresh_ui, show_messagebox
 
 __all__ = [
     "any_box_expanded",
@@ -29,4 +29,5 @@ __all__ = [
     "get_rig_ui_state",
     "get_box_expanded",
     "get_box_state",
+    "get_enum_mapping",
 ]

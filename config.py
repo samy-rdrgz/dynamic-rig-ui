@@ -20,28 +20,13 @@ COLLECTION_PATTERN = re.compile(
     r"(?:_(?P<sub_part>[A-Z0-9_]+))?"
     r"(?:(?P<side>\.[LMRXYZ])|(?P<custom_side>\.\d+)|(?P<col_type>:[A-Z]+))?$"
 )
+PROPERTY_PATTERN = re.compile(
+    r"^(?P<part>[A-Z]+)"
+    r"(?:_(?P<sub_part>[A-Z0-9_]+))?"
+    r"(?:(?P<side>\.[LMRXYZ])|(?P<custom_side>\.\d+))?$"
+)
+MASK_PATTERN = re.compile(r"^(MASK_)([A-Z0-9_]+)(.([LMR]|(\d)))?$", re.MULTILINE)
 
-
-# =============================================================================
-# BODY PARTS CONFIGURATION
-# =============================================================================
-NO_BODY_PREFIX: list[str] = []  # Input_no_body_prefix
-
-PREFIX_ORDER: list[str] = [
-    "ROOT",
-    "BODY",
-    "CLOTHES",
-    "HEAD",
-    "HAIR",
-    "NECK",
-    "SPINE",
-    "CHEST",
-    "ARM",
-    "HAND",
-    "PELVIS",
-    "LEG",
-    "FOOT",
-]
 
 # =============================================================================
 # IK/FK CHAIN DEFINITIONS

@@ -78,7 +78,9 @@ def get_property_bone(armature: bpy.types.Object) -> bpy.types.PoseBone | None:
     Returns:
         Le PoseBone de propriétés ou None.
     """
-    return armature.pose.bones.get(PROPERTY_BONE)
+    pb_name = get_rig_data(bpy.context, PROPERTY_BONE)
+
+    return armature.pose.bones[pb_name]
 
 
 def get_matrix_with_offset(

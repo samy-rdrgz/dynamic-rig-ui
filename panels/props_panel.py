@@ -1,15 +1,14 @@
 """Panel pour les propriétés custom du rig."""
 
-import re
-
 from bpy.types import Panel
 
-from ..config import NO_BODY_PREFIX, PROPERTY_BONE, RIG_ID, UI_RATIO_PROPS
+from ..config import PROPERTY_BONE, RIG_ID
 from ..core import get_rig_cache
 from ..utils import (
     any_box_expanded,
     get_active_rig,
     get_box_expanded,
+    get_enum_mapping,
     get_rig_data,
     is_valid_rig,
 )
@@ -51,75 +50,28 @@ class RIGUI_PT_customprops(Panel):
             panel.prop(context.active_object.data, f'["{PROPERTY_BONE}"]', text="Prop bone")
             return None
         cache = get_rig_cache(armature)
-
-        # Récupère et trie les propriétés
-        props_data = self._get_sorted_properties(property_bone)
-
-        # Contenu
-        self._draw_properties(context, panel, armature, property_bone, props_data)
-
-    def _get_sorted_properties(self, bone):
-        """Récupère les propriétés triées par ordre de priorité."""
-        custom_props = sorted(bone.keys(), key=str.lower)
-
-        # Ordre de priorité
-        priority_order = [
-            "ROOT",
-            "HEAD",
-            "NECK",
-            "BODY",
-            "SPINE",
-            "CHEST",
-            "ARM",
-            "HAND",
-            "LEG",
-            "FOOT",
-        ] + NO_BODY_PREFIX
-
-        ordered = []
-        remaining = list(custom_props)
-
-        for prefix in priority_order:
-            for prop in list(remaining):
-                if str(prop).startswith(prefix):
-                    ordered.append(prop)
-                    remaining.remove(prop)
-
-        all_props = ordered + remaining
-
-        # Parse les propriétés
-        props_str = "\n" + "\n".join(all_props)
-        pattern = re.compile(r"^([A-Z]+)_([A-Z0-9_]+)(.([LMR]|(\d)))?$", re.MULTILINE)
-
-        props_data = []
-        for match in pattern.finditer(props_str):
-            props_data.append(
-                {
-                    "name": match.group(0),
-                    "part": match.group(1),
-                    "sub_part": match.group(2),
-                    "side": match.group(4),
-                }
-            )
-
-        return props_data
+        boxes = cache.p_hierarchy
+        for b_data in boxes:
+            self._draw_group(context, panel, armature, rig_id, property_bone, b_data)
+            # self._draw_box(context,panel,rig_id,property_bone,b_data)
+        s = panel.row()
+        s.scale_y = 0.4
+        s.scale_x = 6.0
+        s.active = False
+        s.prop(context.scene, "column_factor", text="", slider=True)
 
     def draw_header(self, context):
         """Dessine l'en-tête du panel."""
-        parts = set()
 
         armature = get_active_rig(context)
         rig_id = str(get_rig_data(context, RIG_ID))
-        property_bone_name = get_rig_data(context, PROPERTY_BONE)
 
-        props_data = self._get_sorted_properties(armature.pose.bones[property_bone_name])
-        for d in props_data:
-            if d["part"] not in parts:
-                parts.add(d["part"])
+        cache = get_rig_cache(armature)
+        parts = cache.p_parts
 
         icon = (
             "DOWNARROW_HLT"
-            if any_box_expanded(context.scene, rig_id, "ui_ctrl_", read_only=True)
+            if any_box_expanded(context.scene, rig_id, "ui_prop_", read_only=True)
             else "RIGHTARROW"
         )
 
@@ -132,96 +84,51 @@ class RIGUI_PT_customprops(Panel):
         op.prefix = "ui_prop_"
         op.parts = ",".join(parts)
 
-    def _draw_properties(self, context, panel, armature, bone, props_data):
-        """Dessine les propriétés groupées."""
-        panel.scale_y = 0.8
-        current_part = None
-        bloc = None
-        b_row = None
+    def _draw_group(self, context, panel, armature, rig_id, property_bone, box_data):
+        box = panel.box().column(align=True)
+        expanded = get_box_expanded(context.scene, rig_id, f"ui_prop_{box_data[0].part}")
 
-        # Récupère la liste des noms pour vérifier les côtés
-        prop_names = [p["name"] for p in props_data]
-        rig_id = str(get_rig_data(context, RIG_ID))
-        for data in props_data:
-            prop_name = data["name"]
-            part = data["part"]
-            sub_part = data["sub_part"]
-            side = data["side"]
+        self._draw_group_header(box, box_data, expanded)
+        if expanded:
+            box.separator(factor=0.5)
+            self._draw_group_content(context, box, property_bone, box_data)
+        return box
 
-            # Nouveau groupe ?
-            if current_part != part:
-                panel.separator(factor=0.1)
-                bloc = panel.box().column(align=True)
+    def _draw_group_header(self, box_layout, box_data, expanded):
+        """Dessine l'en-tête d'un groupe de collections."""
+        title_line = box_layout.row(align=True)
+        title_line.scale_y = 1.1
+        title_line.alignment = "LEFT"
 
-                # Titre du groupe
-                titre = bloc.row()
-                titre.scale_y = 1.3
-                titre.alignment = "LEFT"
+        icon = "DOWNARROW_HLT" if expanded else "RIGHTARROW"
+        op = title_line.operator(
+            "rigui.toggle_boxes",
+            emboss=False,
+            text=box_data[0].part,
+            icon=icon,
+        )
+        op.prefix = "ui_prop_"
+        op.parts = box_data[0].part
 
-                expanded = get_box_expanded(context.scene, rig_id, f"ui_prop_{part}")
-                icon = "DOWNARROW_HLT" if expanded else "RIGHTARROW"
+    def _draw_group_content(self, context, box, property_bone, box_data):
+        for p in box_data:
+            if not p.has_side or p.side == ".L":
+                row = box.split(factor=context.scene.column_factor)
+                row.label(text=p.sub_part.replace("_", " ").capitalize())
+                row = row.row(align=True)
 
-                op = titre.operator(
-                    "rigui.toggle_boxes",
-                    emboss=False,
-                    text=part,
-                    icon=icon,
-                )
-                op.prefix = "ui_prop_"
-                op.parts = part
+            if p.fake:
+                row.label(text="")
+            else:
+                desc = get_enum_mapping(property_bone, p.name)
+                if property_bone.id_properties_ui(p.name).as_dict().get("step") == 1 and desc:
+                    current = property_bone.get(p.name, 0)
+                    label = desc.get(current, str(current))
+                    op = row.operator("rigui.enum_popup", text=label, icon="DOWNARROW_HLT")
+                    op.prop_name = p.name
 
-                current_part = part
-                if expanded:
-                    bloc.separator(factor=1)
-                    p_bloc = bloc.column()
-                    bloc.separator(factor=2)
-
-            # Contenu (si expanded)
-            if not get_box_expanded(context.scene, rig_id, f"ui_prop_{part}"):
-                continue
-
-            # Détermine la colonne et l'espace vide
-            num_col, empty_space = self._get_column_info(prop_name, side, prop_names)
-
-            if num_col == 0 or side is None:
-                b_row = p_bloc.row(align=True)
-                split = b_row.split(align=True, factor=UI_RATIO_PROPS)
-                split.alignment = "LEFT"
-                split.label(text=f" {sub_part}")
-                b_row = split.row(align=True)
-
-                if empty_space == -1:
-                    b_row.label(text="")
-
-                b_row.prop(bone, f'["{prop_name}"]', text="", slider=True)
-
-                if empty_space == 1:
-                    b_row.label(text="")
-
-            elif num_col > 0:
-                b_row.prop(bone, f'["{prop_name}"]', text="", slider=True)
-
-    def _get_column_info(self, prop_name, side, prop_names):
-        """Détermine la colonne et l'espace vide pour une propriété."""
-        if side is None:
-            return 0, 0
-
-        if side == "L":
-            right_name = prop_name.replace(".L", ".R")
-            if right_name not in prop_names:
-                return 0, 1  # Espace à droite
-            return 0, 0
-
-        if side == "R":
-            left_name = prop_name.replace(".R", ".L")
-            if left_name not in prop_names:
-                return 0, -1  # Espace à gauche
-            return 1, 0
-
-        if side.isdigit():
-            return int(side), 0
-
-        return 0, 0
+                else:
+                    row.prop(property_bone, f'["{p.name}"]', text="", slider=True)
 
 
 # Classes à enregistrer

@@ -1,10 +1,9 @@
 """Panel pour la gestion des masks."""
 
-import re
-
 from bpy.types import Panel
 
-from ..config import NO_BODY_PREFIX, PREFIX_ORDER
+from ..config import MASK_PATTERN
+from ..core import get_rig_cache
 from ..utils import get_active_rig, is_valid_rig
 
 
@@ -73,7 +72,7 @@ class RIGUI_PT_masks(Panel):
         mask_modifiers.sort(key=lambda m: m.vertex_group)
 
         # Applique l'ordre de priorité
-        priority = PREFIX_ORDER + NO_BODY_PREFIX
+        priority = get_rig_cache(armature).parts
         ordered = []
         remaining = list(mask_modifiers)
 
@@ -87,11 +86,10 @@ class RIGUI_PT_masks(Panel):
         all_masks = ordered + remaining
 
         # Parse les données
-        pattern = re.compile(r"^(MASK_)([A-Z0-9_]+)(.([LMR]|(\d)))?$", re.MULTILINE)
         masks_data = []
 
         for modifier in all_masks:
-            match = pattern.match(modifier.vertex_group)
+            match = MASK_PATTERN.match(modifier.vertex_group)
             if match:
                 masks_data.append(
                     {
@@ -124,11 +122,6 @@ class RIGUI_PT_masks(Panel):
             vg_name = data["vg_name"]
             part = data["part"]
             side = data["side"]
-
-            # Ligne de séparation pour les non-body parts
-            if part in NO_BODY_PREFIX and not drew_separator:
-                col.separator(type="LINE")
-                drew_separator = True
 
             # Skip si déjà traité (pour les duplicates)
             if vg_name in processed_vgs:
