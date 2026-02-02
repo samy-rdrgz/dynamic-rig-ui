@@ -121,7 +121,7 @@ class RIGUI_PT_customprops(Panel):
                 row.label(text="")
             else:
                 desc = get_enum_mapping(property_bone, p.name)
-                if property_bone.id_properties_ui(p.name).as_dict().get("step") == 1 and desc:
+                if desc:
                     current = property_bone.get(p.name, 0)
                     label = desc.get(current, str(current))
                     op = row.operator("rigui.enum_popup", text=label, icon="DOWNARROW_HLT")

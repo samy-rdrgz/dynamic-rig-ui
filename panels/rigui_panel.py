@@ -11,6 +11,7 @@ from ..utils import (
     any_collection,
     get_active_rig,
     get_box_expanded,
+    get_enum_mapping,
     get_rig_data,
     is_valid_rig,
 )
@@ -43,15 +44,7 @@ class RIGUI_PT_rigui(Panel):
         """Dessine l'en-tête avec les toggles globaux."""
         armature = get_active_rig(context)
         rig_id = str(get_rig_data(context, RIG_ID))
-        property_bone_name = get_rig_data(context, PROPERTY_BONE)
 
-        try:
-            property_bone = armature.pose.bones[property_bone_name]
-        except (AttributeError, KeyError, TypeError):
-            property_bone = None
-        if not property_bone:
-            self._draw_error(context)
-            return None
         cache = get_rig_cache(armature)
         hierarchy = cache.hierarchy
 
@@ -105,15 +98,19 @@ class RIGUI_PT_rigui(Panel):
         rig_id = str(get_rig_data(context, RIG_ID))
         property_bone_name = get_rig_data(context, PROPERTY_BONE)
 
-        try:
-            property_bone = armature.pose.bones[property_bone_name]
-        except (AttributeError, KeyError, TypeError):
+        if property_bone_name:
+            try:
+                property_bone = armature.pose.bones[property_bone_name]
+            except (AttributeError, KeyError, TypeError):
+                property_bone = None
+            if not property_bone:
+                self._draw_error(context)
+                return None
+        else:
             property_bone = None
-        if not property_bone:
-            self._draw_error(context)
-            return None
         cache = get_rig_cache(armature)
         hierarchy = cache.hierarchy
+        p_hierarchy = cache.p_hierarchy
 
         layout = self.layout
         panel = layout.column()
@@ -127,16 +124,10 @@ class RIGUI_PT_rigui(Panel):
         # Header avec toggle global
         # self._draw_header(context, panel, armature, rig_id, cache, hierarchy, any_solo)
 
-        for b in hierarchy:
-            if len(b) > 1 or not b[0].is_order:
+        for box in hierarchy:
+            if len(box) > 1 or not box[0].is_order:
                 self._draw_group(
-                    context,
-                    panel,
-                    armature,
-                    rig_id,
-                    property_bone,
-                    b,
-                    any_solo,
+                    context, panel, armature, rig_id, property_bone, box, any_solo, p_hierarchy
                 )
                 panel.separator(factor=0.1)
 
@@ -146,7 +137,9 @@ class RIGUI_PT_rigui(Panel):
         panel.label(text="Your property posebone is not existing", icon="ERROR")
         panel.prop(context.active_object.data, '["prop_posebone_name"]', text="Prop bone")
 
-    def _draw_group(self, context, panel, armature, rig_id, property_bone, box_data, any_solo):
+    def _draw_group(
+        self, context, panel, armature, rig_id, property_bone, box_data, any_solo, p_hierarchy
+    ):
         box = panel.box().column(align=True)
         expanded = get_box_expanded(context.scene, rig_id, f"ui_ctrl_{box_data[0].part}")
 
@@ -158,7 +151,7 @@ class RIGUI_PT_rigui(Panel):
         self._draw_group_header(box, rig_id, box_data, expanded, any_visible, any_solo)
         if expanded:
             box.separator(factor=0.5)
-            self._draw_group_content(armature, box, property_bone, box_data, any_solo)
+            self._draw_group_content(armature, box, property_bone, box_data, any_solo, p_hierarchy)
         return box
 
     def _draw_group_header(self, box_layout, rig_id, box_data, expanded, any_visible, any_solo):
@@ -190,21 +183,28 @@ class RIGUI_PT_rigui(Panel):
         op.prefix = "ui_ctrl_"
         op.parts = box_data[0].part
 
-    def _draw_group_content(self, armature, box, property_bone, box_data, any_solo):
+    def _draw_group_content(self, armature, box, property_bone, box_data, any_solo, p_hierarchy):
         box = box.column(align=True)
         box.scale_y = 1.3
         col_index = 0
+        p_hierarchy = [p for b in p_hierarchy for p in b]
         for r in box_data:
             if r.is_prop:
                 box_line = box.column(align=False).row(align=True)
-                for prop in property_bone.keys():
-                    if prop.startswith(f"{r.part}_{r.sub_part}"):
-                        box_line.prop(
-                            property_bone,
-                            f'["{prop}"]',
-                            text=f"{r.sub_part} ",
-                            slider=True,
-                        )
+                for prop in p_hierarchy:
+                    if prop.part == r.part and prop.sub_part == r.sub_part:
+                        desc = get_enum_mapping(property_bone, prop.name)
+                        if desc:
+                            current = property_bone.get(prop.name, 0)
+                            label = desc.get(current, str(current))
+                            op = box_line.operator(
+                                "rigui.enum_popup", text=label, icon="DOWNARROW_HLT"
+                            )
+                            op.prop_name = prop.name
+
+                        else:
+                            box_line.prop(property_bone, f'["{prop.name}"]', text="", slider=True)
+
                 continue
             elif r.is_mask:
                 mask_modifiers = []

@@ -2,8 +2,10 @@ from collections import defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 
-from ..config import COLLECTION_PATTERN, PROPERTY_PATTERN, RIG_ID
-from ..utils import get_property_bone
+import bpy
+
+from ..config import COLLECTION_PATTERN, PROPERTY_BONE, PROPERTY_PATTERN, RIG_ID
+from ..utils import get_property_bone, get_rig_data
 
 
 @dataclass
@@ -229,7 +231,8 @@ def get_rig_cache(armature) -> RigCache:
 
         c_hierarchy = _compute_hierarchy(collections, c_parts)
 
-    if recompute_p:
+    pb_name = get_rig_data(bpy.context, PROPERTY_BONE)
+    if (recompute_p or recompute_c) and pb_name:
         properties = {}
         p_parts = []
 
@@ -242,6 +245,11 @@ def get_rig_cache(armature) -> RigCache:
 
         p_parts_ordered = list(dict.fromkeys([p for p in c_parts if p in p_parts] + p_parts))
         p_hierarchy = _compute_properties_hierarchy(properties, p_parts_ordered)
+    elif recompute_p and not pb_name:
+        properties = {}
+        p_parts = []
+        p_hierarchy = []
+        current_p_hash = (0, ())
 
     _cache[rig_id] = RigCache(
         collections=collections,
@@ -273,7 +281,7 @@ def get_all_collections(armature) -> list[CollectionData]:
 def get_collections_by_part(armature, part: str) -> list[CollectionData]:
     """Collections d'une part."""
     cache = get_rig_cache(armature)
-    return [c for c in cache.collections.values() if c.part == part]
+    return [c for c in cache.collections.values() if c.part in part.split(",")]
 
 
 def get_parts(armature) -> list[str]:

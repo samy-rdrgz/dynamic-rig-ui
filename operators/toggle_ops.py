@@ -107,14 +107,16 @@ class RIGUI_OT_ctrl_box_actions(Operator):
         if self.is_shift_hold:
             bpy.ops.rigui.toggle_boxes(prefix=self.prefix, parts=self.parts)
             return {"FINISHED"}
-        for p in self.parts.split(","):
-            collections = get_collections_by_part(armature, p)
-            collections = [armature.data.collections[c.name] for c in collections if c.name]
 
-            attr = "is_solo" if self.is_ctrl_hold else "is_visible"
-            visible = not any(getattr(c, attr) for c in collections)
+        attr = "is_solo" if self.is_ctrl_hold else "is_visible"
 
-            for c in collections:
-                setattr(c, attr, visible)
+        collections = get_collections_by_part(armature, self.parts)
+        collections = [armature.data.collections[c.name] for c in collections if c.name]
+        visible = not any(getattr(c, attr) for c in collections)
+
+        visible = not any(getattr(c, attr) for c in collections)
+
+        for c in collections:
+            setattr(c, attr, visible)
 
         return {"FINISHED"}

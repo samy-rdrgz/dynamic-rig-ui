@@ -29,7 +29,6 @@ class RIGUI_PT_masks(Panel):
         layout.alignment = "LEFT"
         armature = get_active_rig(context)
         masks_data = self._collect_masks(armature)
-        layout.label(icon="BLANK1")
         all_visible = all(
             m["modifier"].show_viewport
             for m in masks_data
