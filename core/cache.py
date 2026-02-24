@@ -1,11 +1,10 @@
-from collections import defaultdict
+"""Cache de données parsées pour les rigs."""
+
 from copy import deepcopy
 from dataclasses import dataclass
 
-import bpy
-
 from ..config import COLLECTION_PATTERN, PROPERTY_BONE, PROPERTY_PATTERN, RIG_ID
-from ..utils import get_property_bone, get_rig_data
+from ..utils import get_property_bone
 
 
 @dataclass
@@ -17,10 +16,8 @@ class CollectionData:
     sub_part: str = ""
     side: str = ""
     custom_side: str = ""
-    c_type: str = ""
+    col_type: str = ""
     fake: bool = False
-
-    # Propriétés calculées
 
     @property
     def is_left(self) -> bool:
@@ -32,19 +29,19 @@ class CollectionData:
 
     @property
     def has_custom_type(self) -> bool:
-        return self.c_type != ""
+        return self.col_type != ""
 
     @property
     def is_prop(self) -> bool:
-        return self.c_type == ":PROP"
+        return self.col_type == ":PROP"
 
     @property
     def is_mask(self) -> bool:
-        return self.c_type == ":MASK"
+        return self.col_type == ":MASK"
 
     @property
     def is_order(self) -> bool:
-        return self.c_type == ":ORDER"
+        return self.col_type == ":ORDER"
 
     @property
     def is_fake(self) -> bool:
@@ -120,12 +117,12 @@ class RigCache:
     collections: dict[str, CollectionData]  # name → data
     parts: list[str]  # Ordre des parts
     hierarchy: list[list[CollectionData]]  # Groupé + fake pour layout
-    c_hash: tuple  # Pour détecter les changements
+    collections_hash: tuple  # Pour détecter les changements
 
     properties: dict[str, PropertyData]
-    p_parts: list[str]
-    p_hierarchy: list[list[CollectionData]]
-    p_hash: tuple
+    props_parts: list[str]
+    props_hierarchy: list[list[PropertyData]]
+    props_hash: tuple
 
 
 # Cache global : rig_id → RigCache
@@ -177,10 +174,16 @@ def _compute_hierarchy(
     return ordered
 
 
-def _compute_hash(armature) -> tuple:
-    """Hash rapide pour détecter les changements."""
+def _compute_collections_hash(armature) -> tuple:
+    """Hash rapide pour détecter les changements de collections."""
     cols = armature.data.collections
     return (len(cols), tuple(c.name for c in cols))
+
+
+def _compute_props_hash(armature) -> tuple:
+    """Hash rapide pour détecter les changements de custom props."""
+    props = get_all_properties(armature)
+    return (len(props), tuple(props))
 
 
 def _parse_collection(name: str) -> CollectionData | None:
@@ -195,77 +198,86 @@ def _parse_collection(name: str) -> CollectionData | None:
         sub_part=match.group("sub_part") or "",
         side=match.group("side") or "",
         custom_side=match.group("custom_side") or "",
-        c_type=match.group("col_type") or "",
+        col_type=match.group("col_type") or "",
     )
 
 
 def get_rig_cache(armature) -> RigCache:
     """Récupère ou crée le cache pour un rig."""
     rig_id = armature.data.get(RIG_ID, armature.name)
-    current_c_hash = _compute_hash(armature)
-    current_p_hash = _compute_p_hash(armature)
+    current_collections_hash = _compute_collections_hash(armature)
+    current_props_hash = _compute_props_hash(armature)
 
-    recompute_c = rig_id not in _cache or _cache[rig_id].c_hash != current_c_hash
-    recompute_p = rig_id not in _cache or _cache[rig_id].p_hash != current_p_hash
+    recompute_collections = (
+        rig_id not in _cache or _cache[rig_id].collections_hash != current_collections_hash
+    )
+    recompute_props = rig_id not in _cache or _cache[rig_id].props_hash != current_props_hash
 
     old = _cache.get(rig_id)
 
+    # Valeurs par défaut depuis le cache existant
     collections = deepcopy(old.collections) if old else {}
-    c_parts = deepcopy(old.parts) if old else []
-    c_hierarchy = deepcopy(old.hierarchy) if old else []
+    collections_parts = deepcopy(old.parts) if old else []
+    collections_hierarchy = deepcopy(old.hierarchy) if old else []
 
     properties = deepcopy(old.properties) if old else {}
-    p_parts = deepcopy(old.p_parts) if old else []
-    p_hierarchy = deepcopy(old.p_hierarchy) if old else []
+    props_parts = deepcopy(old.props_parts) if old else []
+    props_hierarchy = deepcopy(old.props_hierarchy) if old else []
 
-    if recompute_c:
+    if recompute_collections:
         collections = {}
-        c_parts = []
+        collections_parts = []
 
         for col in armature.data.collections:
             data = _parse_collection(col.name)
             if data:
                 collections[col.name] = data
-                if data.part not in c_parts:
-                    c_parts.append(data.part)
+                if data.part not in collections_parts:
+                    collections_parts.append(data.part)
 
-        c_hierarchy = _compute_hierarchy(collections, c_parts)
+        collections_hierarchy = _compute_hierarchy(collections, collections_parts)
 
-    pb_name = get_rig_data(bpy.context, PROPERTY_BONE)
-    if (recompute_p or recompute_c) and pb_name:
+    # Lit PROPERTY_BONE directement sur l'armature, sans bpy.context
+    property_bone_name = armature.data.get(PROPERTY_BONE)
+
+    if (recompute_props or recompute_collections) and property_bone_name:
         properties = {}
-        p_parts = []
+        props_parts = []
 
         for prop in get_all_properties(armature):
             data = _parse_property(prop)
             if data:
                 properties[prop] = data
-                if data.part not in p_parts:
-                    p_parts.append(data.part)
+                if data.part not in props_parts:
+                    props_parts.append(data.part)
 
-        p_parts_ordered = list(dict.fromkeys([p for p in c_parts if p in p_parts] + p_parts))
-        p_hierarchy = _compute_properties_hierarchy(properties, p_parts_ordered)
-    elif recompute_p and not pb_name:
+        # Respecte l'ordre des collections pour les parts communes
+        props_parts_ordered = list(
+            dict.fromkeys([p for p in collections_parts if p in props_parts] + props_parts)
+        )
+        props_hierarchy = _compute_properties_hierarchy(properties, props_parts_ordered)
+
+    elif recompute_props and not property_bone_name:
         properties = {}
-        p_parts = []
-        p_hierarchy = []
-        current_p_hash = (0, ())
+        props_parts = []
+        props_hierarchy = []
+        current_props_hash = (0, ())
 
     _cache[rig_id] = RigCache(
         collections=collections,
-        parts=c_parts,
-        hierarchy=c_hierarchy,
-        c_hash=current_c_hash,
+        parts=collections_parts,
+        hierarchy=collections_hierarchy,
+        collections_hash=current_collections_hash,
         properties=properties,
-        p_parts=p_parts,
-        p_hierarchy=p_hierarchy,
-        p_hash=current_p_hash,
+        props_parts=props_parts,
+        props_hierarchy=props_hierarchy,
+        props_hash=current_props_hash,
     )
 
     return _cache[rig_id]
 
 
-# === Accesseurs simples ===
+# === Accesseurs ===
 
 
 def get_collection(armature, name: str) -> CollectionData | None:
@@ -279,7 +291,7 @@ def get_all_collections(armature) -> list[CollectionData]:
 
 
 def get_collections_by_part(armature, part: str) -> list[CollectionData]:
-    """Collections d'une part."""
+    """Collections d'une part (accepte plusieurs parts séparées par virgule)."""
     cache = get_rig_cache(armature)
     return [c for c in cache.collections.values() if c.part in part.split(",")]
 
@@ -289,29 +301,19 @@ def get_parts(armature) -> list[str]:
     return get_rig_cache(armature).parts
 
 
-def get_collections_hierarchy(armature) -> list[list[CollectionData]]:
-    cache = get_rig_cache(armature)
-
-    by_part = defaultdict(list)
-    for c in cache.collections.values():
-        by_part[c.part].append(c)
-
-    return [by_part[p] for p in cache.parts]
-
-
 # === Properties ===
 
 
 def get_all_properties(armature) -> list[str]:
-    pb = get_property_bone(armature)
-    if pb is not None:
-        return list(pb.keys())
-    else:
-        return []
+    """Toutes les custom props du property bone."""
+    property_bone = get_property_bone(armature)
+    if property_bone is not None:
+        return list(property_bone.keys())
+    return []
 
 
 def _parse_property(name: str) -> PropertyData | None:
-    """Parse un nom de collection."""
+    """Parse un nom de custom property."""
     match = PROPERTY_PATTERN.match(name)
     if not match:
         return None
@@ -328,7 +330,7 @@ def _parse_property(name: str) -> PropertyData | None:
 def _compute_properties_hierarchy(
     properties: dict[str, PropertyData], parts: list[str]
 ) -> list[list[PropertyData]]:
-    """Construit la hiérarchie avec fake collections."""
+    """Construit la hiérarchie de properties avec fakes pour le layout L/R."""
     ordered = []
     ordered_names = set()
 
@@ -364,9 +366,3 @@ def _compute_properties_hierarchy(
         ordered.append(part_properties)
 
     return ordered
-
-
-def _compute_p_hash(armature) -> tuple:
-    """Hash rapide pour détecter les changements."""
-    props = get_all_properties(armature)
-    return (len(props), tuple(p for p in props))

@@ -31,41 +31,54 @@ MASK_PATTERN = re.compile(r"^(MASK_)([A-Z0-9_]+)(.([LMR]|(\d)))?$", re.MULTILINE
 # =============================================================================
 # IK/FK CHAIN DEFINITIONS
 # =============================================================================
-LEG_SWITCH_PROP = "LEG_FK_IK"
+# Les chaînes IK/FK ne sont plus hardcodées ici.
+# Elles sont définies par rig via une custom prop JSON sur l'armature.
+# Pas besoin de faire un dict par side (.L/.M/.R) ou par variante (.1/.2/.../.9),
+# supprimer le suffix dans le nom des bones.
+# Clé de la custom prop à créer sur armature.data :
+IK_CHAINS = "drigui_ik_chains"
 
-LEG_FK: dict[str, str] = {
-    "target_C": "MCH_FK_IK_FOOT_IK",
-    "target_pole": "MCH_FK_IK_LEG_IK_POLE",
-    "A": "LEG_FK",
-    "B": "SHIN_FK",
-    "C": "FOOT_FK",
-}
+# Exemple de valeur JSON à coller dans la custom prop :
+# {
+#    "LEG": {
+#        "switch_prop": "LEG_FK_IK",
+#        "fk": {
+#            "copy_end": "MCH_FK_IK_FOOT_IK",
+#            "copy_pole": "MCH_FK_IK_LEG_IK_POLE",
+#            "past_upper": "LEG_FK",
+#            "past_middle": "SHIN_FK",
+#            "past_end": "FOOT_FK"
+#        },
+#        "ik": {
+#            "copy_upper": "MCH_LEG_IK",
+#            "copy_middle": "MCH_SHIN_IK",
+#            "copy_end": "MCH_FOOT_IK",
+#            "past_end": "FOOT_IK",
+#            "past_pole": "LEG_IK_POLE"
+#        }
+#    },
+#    "ARM": {
+#        "switch_prop": "ARM_FK_IK",
+#        "fk": {
+#            "copy_end": "MCH_FK_IK_HAND_IK",
+#            "copy_pole": "MCH_FK_IK_ARM_IK_POLE",
+#            "past_upper": "ARM_FK",
+#            "past_middle": "FOREARM_FK",
+#            "past_end": "HAND_FK"
+#        },
+#        "ik": {
+#            "copy_upper": "MCH_ARM_IK",
+#            "copy_middle": "MCH_FOREARM_IK",
+#            "copy_end": "MCH_HAND_IK",
+#            "past_end": "HAND_IK",
+#            "past_pole": "ARM_IK_POLE"
+#        }
+#    },
+#    "PONYTAIL": {
+#        ...
+#    }
+# }
 
-LEG_IK: dict[str, str] = {
-    "C": "FOOT_IK",
-    "pole": "LEG_IK_POLE",
-    "target_A": "MCH_LEG_IK",
-    "target_B": "MCH_SHIN_IK",
-    "target_C": "MCH_FOOT_IK",
-}
-
-ARM_SWITCH_PROP = "ARM_FK_IK"
-
-ARM_FK: dict[str, str] = {
-    "target_C": "MCH_FK_IK_HAND_IK",
-    "target_pole": "MCH_FK_IK_ARM_IK_POLE",
-    "A": "ARM_FK",
-    "B": "FOREARM_FK",
-    "C": "HAND_FK",
-}
-
-ARM_IK: dict[str, str] = {
-    "C": "HAND_IK",
-    "pole": "ARM_IK_POLE",
-    "target_A": "MCH_ARM_IK",
-    "target_B": "MCH_FOREARM_IK",
-    "target_C": "MCH_HAND_IK",
-}
 
 # =============================================================================
 # UI SETTINGS

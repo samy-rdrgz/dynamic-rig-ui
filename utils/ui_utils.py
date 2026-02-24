@@ -1,5 +1,7 @@
 """Utilitaires pour l'interface utilisateur."""
 
+import json
+
 import bpy
 
 
@@ -11,12 +13,10 @@ def show_messagebox(
     """Affiche une popup de retour utilisateur.
 
     Args:
-        title: Titre (première ligne) du message.
-        lines: Liste de chaînes structurant les lignes du message.
+        title: Titre de la popup.
+        lines: Liste de lignes à afficher.
         icon: ID d'une icône Blender.
     """
-    if lines is None:
-        lines = []
     if lines is None:
         lines = []
 
@@ -28,20 +28,22 @@ def show_messagebox(
     bpy.context.window_manager.popup_menu(draw, title=title, icon=icon)
 
 
-def refresh_ui() -> None:
-    """Force le rafraîchissement de toutes les zones de l'interface."""
-    for area in bpy.context.screen.areas:
-        area.tag_redraw()
+def get_enum_mapping(pose_bone, prop: str) -> dict[int, str]:
+    """Lit le mapping entier→label depuis la description JSON d'une custom prop.
 
+    Le JSON est stocké dans le champ description de la UI property.
+    Format attendu : {"0": "FK", "1": "IK"}
 
-import json
+    Args:
+        pose_bone: Le PoseBone portant la propriété.
+        prop: Le nom de la custom prop.
 
-
-def get_enum_mapping(pose_bone, prop):
-    ui = pose_bone.id_properties_ui(prop).as_dict()
-    desc = ui.get("description", "")
-
+    Returns:
+        Dict {int: str} ou {} si absent/invalide.
+    """
     try:
+        ui = pose_bone.id_properties_ui(prop).as_dict()
+        desc = ui.get("description", "")
         data = json.loads(desc)
         return {int(k): v for k, v in data.items()}
     except Exception:

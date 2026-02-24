@@ -32,32 +32,32 @@ def get_active_rig(context: bpy.types.Context) -> bpy.types.Object | None:
 
 
 def is_valid_rig(obj: bpy.types.Object | None) -> bool:
-    """Vérifie si l'objet est un rig valide avec le bon ID.
+    """Vérifie si l'objet est un rig valide activé pour Dynamic RigUI.
 
     Args:
         obj: L'objet à vérifier.
 
     Returns:
-        True si c'est un rig valide avec le bon rig_id.
+        True si c'est une armature avec le flag ACTIVE.
     """
     if obj is None:
         return False
 
     try:
-        return obj.data.get(ACTIVE)
+        return bool(obj.data.get(ACTIVE))
     except (AttributeError, KeyError, TypeError):
         return False
 
 
 def get_rig_data(context: bpy.types.Context, data: str) -> str | int | None:
-    """Retourne la  valeur de custom props demandée si trouvée,
-    sinon None.
+    """Retourne la valeur d'une custom prop de l'armature active.
 
     Args:
         context: Le contexte Blender courant.
+        data: La clé de la custom prop.
 
     Returns:
-        Type de la custom prop si trouvée, sinon None
+        La valeur de la prop si trouvée, sinon None.
     """
     obj = get_active_rig(context)
     if obj:
@@ -65,12 +65,13 @@ def get_rig_data(context: bpy.types.Context, data: str) -> str | int | None:
             return obj.data.get(data)
         except Exception:
             return None
-    else:
-        return None
+    return None
 
 
 def get_property_bone(armature: bpy.types.Object) -> bpy.types.PoseBone | None:
     """Récupère le bone de propriétés du rig.
+
+    Lit le nom du bone directement depuis armature.data, sans dépendre de bpy.context.
 
     Args:
         armature: L'armature contenant le bone.
@@ -78,10 +79,12 @@ def get_property_bone(armature: bpy.types.Object) -> bpy.types.PoseBone | None:
     Returns:
         Le PoseBone de propriétés ou None.
     """
-    pb_name = get_rig_data(bpy.context, PROPERTY_BONE)
+    property_bone_name = armature.data.get(PROPERTY_BONE)
+    if not property_bone_name:
+        return None
     try:
-        return armature.pose.bones[pb_name]
-    except:  # noqa: E722
+        return armature.pose.bones[property_bone_name]
+    except (AttributeError, KeyError, TypeError):
         return None
 
 
@@ -98,14 +101,9 @@ def get_matrix_with_offset(
     Returns:
         La matrice monde finale pour le bone cible.
     """
-    # Matrices en rest pose
     source_rest = source_bone.bone.matrix_local
     target_rest = target_bone.bone.matrix_local
-
-    # Matrice d'offset
     offset = source_rest.inverted() @ target_rest
-
-    # Matrice monde finale
     return source_bone.matrix @ offset
 
 
@@ -115,15 +113,18 @@ def any_collection(
     prop: str = "is_visible",
     flatten: bool = False,
 ) -> bool:
-    """
-    data : list (or list de list) de dictionnaires
-    prop : is_visible, is_solo, ...
+    """Vérifie si au moins une collection (non-type) a la propriété à True.
+
+    Args:
+        armature: L'armature contenant les collections.
+        data: list ou list de list de CollectionData.
+        prop: "is_visible", "is_solo", etc.
+        flatten: Si True, aplatit une list de list.
     """
     if flatten:
         data = [d for p in data for d in p]
-    a = any(
+    return any(
         getattr(armature.data.collections[col.name], prop, False)
         for col in data
-        if col.name and not col.c_type
+        if col.name and not col.col_type
     )
-    return a

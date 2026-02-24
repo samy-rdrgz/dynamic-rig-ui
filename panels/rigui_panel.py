@@ -1,4 +1,4 @@
-"""Panel pour la gestion des controllers du rig."""
+"""Panel principal : controllers, masks inline et custom props inline."""
 
 import re
 
@@ -16,6 +16,7 @@ from ..utils import (
     is_valid_rig,
 )
 
+# (any_solo=False/True, any_visible=False/True)
 ICONS = (("HIDE_ON", "HIDE_OFF"), ("SOLO_OFF", "SOLO_ON"))
 
 
@@ -27,9 +28,7 @@ class RIGUI_PT_rigui(Panel):
     bl_category = "Item"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_options = {
-        "HEADER_LAYOUT_EXPAND",
-    }
+    bl_options = {"HEADER_LAYOUT_EXPAND"}
 
     @classmethod
     def poll(cls, context):
@@ -41,50 +40,43 @@ class RIGUI_PT_rigui(Panel):
         return is_valid_rig(armature)
 
     def draw_header(self, context):
-        """Dessine l'en-tête avec les toggles globaux."""
         armature = get_active_rig(context)
         rig_id = str(get_rig_data(context, RIG_ID))
-
         cache = get_rig_cache(armature)
         hierarchy = cache.hierarchy
 
-        layout = self.layout
-        layout = layout.row(align=True)
-
+        layout = self.layout.row(align=True)
         layout.alignment = "LEFT"
 
-        # Dessine chaque groupe
         any_solo = any(
-            armature.data.collections[c.name].is_solo for p in hierarchy for c in p if c.name
+            armature.data.collections[col.name].is_solo
+            for part in hierarchy
+            for col in part
+            if col.name
         )
-
-        # Toggle visibilité de tous les controllers
         parts_str = ",".join(cache.parts)
-        btn_1 = layout.row(align=True)
-        btn_1.active = False
+
+        # Bouton collapse/expand global
+        btn_collapse = layout.row(align=True)
+        btn_collapse.active = False
         icon = (
             "DOWNARROW_HLT"
             if any_box_expanded(context.scene, rig_id, "ui_ctrl_", read_only=True)
             else "RIGHTARROW"
         )
-        op = btn_1.operator(
-            "rigui.toggle_boxes",
-            emboss=False,
-            text="",
-            icon=icon,
-        )
+        op = btn_collapse.operator("rigui.toggle_boxes", emboss=False, text="", icon=icon)
         op.prefix = "ui_ctrl_"
         op.parts = parts_str
 
+        # Bouton visibilité/solo global
         any_visible = any(
-            armature.data.collections[c.name].is_solo
+            armature.data.collections[col.name].is_solo
             if any_solo
-            else armature.data.collections[c.name].is_visible
-            for b in hierarchy
-            for c in b
-            if c.name != ""
+            else armature.data.collections[col.name].is_visible
+            for part in hierarchy
+            for col in part
+            if col.name
         )
-
         op = layout.operator(
             "rigui.ctrl_box_actions",
             emboss=False,
@@ -105,174 +97,179 @@ class RIGUI_PT_rigui(Panel):
                 property_bone = None
             if not property_bone:
                 self._draw_error(context)
-                return None
+                return
         else:
             property_bone = None
+
         cache = get_rig_cache(armature)
         hierarchy = cache.hierarchy
-        p_hierarchy = cache.p_hierarchy
+        props_hierarchy = cache.props_hierarchy
 
         layout = self.layout
         panel = layout.column()
         panel.scale_y = 0.8
 
-        # Dessine chaque groupe
         any_solo = any(
-            armature.data.collections[c.name].is_solo for p in hierarchy for c in p if c.name
+            armature.data.collections[col.name].is_solo
+            for part in hierarchy
+            for col in part
+            if col.name
         )
 
-        # Header avec toggle global
-        # self._draw_header(context, panel, armature, rig_id, cache, hierarchy, any_solo)
-
-        for box in hierarchy:
-            if len(box) > 1 or not box[0].is_order:
+        for box_group in hierarchy:
+            if not box_group:
+                continue
+            if len(box_group) > 1 or not box_group[0].is_order:
                 self._draw_group(
-                    context, panel, armature, rig_id, property_bone, box, any_solo, p_hierarchy
+                    context,
+                    panel,
+                    armature,
+                    rig_id,
+                    property_bone,
+                    box_group,
+                    any_solo,
+                    props_hierarchy,
                 )
                 panel.separator(factor=0.1)
 
     def _draw_error(self, context):
         panel = self.layout.column()
         panel.alert = True
-        panel.label(text="Your property posebone is not existing", icon="ERROR")
-        panel.prop(context.active_object.data, '["prop_posebone_name"]', text="Prop bone")
+        panel.label(text="Property bone not found", icon="ERROR")
+        panel.prop(context.active_object.data, f'["{PROPERTY_BONE}"]', text="Prop bone")
 
     def _draw_group(
-        self, context, panel, armature, rig_id, property_bone, box_data, any_solo, p_hierarchy
+        self,
+        context,
+        panel,
+        armature,
+        rig_id,
+        property_bone,
+        box_group,
+        any_solo,
+        props_hierarchy,
     ):
         box = panel.box().column(align=True)
-        expanded = get_box_expanded(context.scene, rig_id, f"ui_ctrl_{box_data[0].part}")
+        expanded = get_box_expanded(context.scene, rig_id, f"ui_ctrl_{box_group[0].part}")
 
-        if any_solo and not any_collection(armature, box_data, "is_solo"):
+        if any_solo and not any_collection(armature, box_group, "is_solo"):
             box.active = False
 
-        any_visible = any_collection(armature, box_data, "is_solo" if any_solo else "is_visible")
+        any_visible = any_collection(armature, box_group, "is_solo" if any_solo else "is_visible")
 
-        self._draw_group_header(box, rig_id, box_data, expanded, any_visible, any_solo)
+        self._draw_group_header(box, rig_id, box_group, expanded, any_visible, any_solo)
+
         if expanded:
             box.separator(factor=0.5)
-            self._draw_group_content(armature, box, property_bone, box_data, any_solo, p_hierarchy)
+            self._draw_group_content(
+                armature, box, property_bone, box_group, any_solo, props_hierarchy
+            )
         return box
 
-    def _draw_group_header(self, box_layout, rig_id, box_data, expanded, any_visible, any_solo):
-        """Dessine l'en-tête d'un groupe de collections."""
+    def _draw_group_header(self, box_layout, rig_id, box_group, expanded, any_visible, any_solo):
         title_line = box_layout.row(align=True)
         title_line.scale_y = 1.1
 
         title_eye = title_line.row(align=True)
         title_eye.alignment = "EXPAND"
-
         title_collapse = title_line.row(align=True)
         title_collapse.alignment = "RIGHT"
 
         op = title_eye.operator(
             "rigui.ctrl_box_actions",
             emboss=False,
-            text=box_data[0].part,
+            text=box_group[0].part,
             icon=ICONS[int(any_solo)][int(any_visible)],
         )
-        op.parts = box_data[0].part
+        op.parts = box_group[0].part
 
         icon = "DOWNARROW_HLT" if expanded else "RIGHTARROW"
-        op = title_collapse.operator(
-            "rigui.toggle_boxes",
-            emboss=False,
-            text="",
-            icon=icon,
-        )
+        op = title_collapse.operator("rigui.toggle_boxes", emboss=False, text="", icon=icon)
         op.prefix = "ui_ctrl_"
-        op.parts = box_data[0].part
+        op.parts = box_group[0].part
 
-    def _draw_group_content(self, armature, box, property_bone, box_data, any_solo, p_hierarchy):
-        box = box.column(align=True)
-        box.scale_y = 1.3
+    def _draw_group_content(
+        self, armature, box, property_bone, box_group, any_solo, props_hierarchy
+    ):
+        content = box.column(align=True)
+        content.scale_y = 1.3
         col_index = 0
-        p_hierarchy = [p for b in p_hierarchy for p in b]
-        for r in box_data:
-            if r.is_prop:
-                box_line = box.column(align=False).row(align=True)
-                for prop in p_hierarchy:
-                    if prop.part == r.part and prop.sub_part == r.sub_part:
-                        desc = get_enum_mapping(property_bone, prop.name)
-                        if desc:
+        flat_props = [prop for part in props_hierarchy for prop in part]
+
+        for col_data in box_group:
+            # --- Inline custom props (:PROP) ---
+            if col_data.is_prop:
+                row = content.column(align=False).row(align=True)
+                for prop in flat_props:
+                    if prop.part == col_data.part and prop.sub_part == col_data.sub_part:
+                        mapping = get_enum_mapping(property_bone, prop.name)
+                        if mapping:
                             current = property_bone.get(prop.name, 0)
-                            label = desc.get(current, str(current))
-                            op = box_line.operator(
-                                "rigui.enum_popup", text=label, icon="DOWNARROW_HLT"
-                            )
+                            label = mapping.get(current, str(current))
+                            op = row.operator("rigui.enum_popup", text=label, icon="DOWNARROW_HLT")
                             op.prop_name = prop.name
-
                         else:
-                            box_line.prop(property_bone, f'["{prop.name}"]', text="", slider=True)
-
+                            row.prop(property_bone, f'["{prop.name}"]', text="", slider=True)
                 continue
-            elif r.is_mask:
-                mask_modifiers = []
-                for child in armature.children:
-                    for modifier in child.modifiers:
-                        if (
-                            modifier.type == "MASK"
-                            and modifier.vertex_group[5:].split(".")[0] == r.name.split(":")[0]
-                        ):
-                            mask_modifiers.append(modifier)
-                pattern = re.compile(r"^(MASK_)([A-Z0-9_]+)(.([LMR]|(\d)))?$", re.MULTILINE)
 
-                box_line = box.column(align=False).row(align=True)
-                box_line.alignment = "EXPAND"
-                for vg in {modifier.vertex_group for modifier in mask_modifiers}:
-                    masks_data = []
+            # --- Inline masks (:MASK) ---
+            if col_data.is_mask:
+                mask_modifiers = [
+                    modifier
+                    for child in armature.children
+                    for modifier in child.modifiers
+                    if (
+                        modifier.type == "MASK"
+                        and modifier.vertex_group[5:].split(".")[0] == col_data.name.split(":")[0]
+                    )
+                ]
+                mask_pattern = re.compile(r"^(MASK_)([A-Z0-9_]+)(.([LMR]|(\d)))?$", re.MULTILINE)
+                row = content.column(align=False).row(align=True)
+                row.alignment = "EXPAND"
+
+                for vg_name in {m.vertex_group for m in mask_modifiers}:
+                    vg_masks = []
                     for modifier in mask_modifiers:
-                        if modifier.vertex_group == vg:
-                            match = pattern.match(modifier.vertex_group)
+                        if modifier.vertex_group == vg_name:
+                            match = mask_pattern.match(modifier.vertex_group)
                             if match:
-                                masks_data.append(
-                                    {
-                                        "modifier": modifier,
-                                        "vg_name": match.group(0),
-                                        "part": match.group(2),
-                                        "side": match.group(4),
-                                    }
-                                )
+                                vg_masks.append({"modifier": modifier})
 
-                    any_visible = any(m["modifier"].show_viewport for m in masks_data)
-                    box_line.operator(
+                    any_visible = any(m["modifier"].show_viewport for m in vg_masks)
+                    row.operator(
                         "rigui.toggle_masks",
                         emboss=True,
                         text="MASK",
-                        icon="VIS_SEL_10" if any_visible else "VIS_SEL_00",
-                    ).param = vg
+                        icon="HIDE_ON" if any_visible else "HIDE_OFF",
+                    ).param = vg_name
                 continue
 
-            # Gestion des colonnes selon le côté
-            elif (not r.has_side or r.side == ".L") and r.custom_side == "":
-                box_line = box.row(align=True)
+            # --- Gestion colonnes L/R / custom_side ---
+            if (not col_data.has_side or col_data.side == ".L") and col_data.custom_side == "":
+                row = content.row(align=True)
                 col_index = 0
-
-            elif not r.has_side:
-                if col_index >= int(str(r.custom_side)[1:]):
-                    box_line = box.row(align=True)
+            elif not col_data.has_side:
+                if col_index >= int(str(col_data.custom_side)[1:]):
+                    row = content.row(align=True)
                     col_index = 0
                 else:
                     col_index += 1
 
-            # Affiche le toggle de visibilité
-            name = r.sub_part if r.sub_part else "MAIN"
+            # --- Bouton visibilité ---
+            label = col_data.sub_part if col_data.sub_part else "MAIN"
 
-            if r.name == "":
-                btn = box_line.row(align=True)
+            if col_data.name == "":
+                # Fake bone (miroir absent) : placeholder grisé
+                btn = row.row(align=True)
                 btn.active = False
                 btn.enabled = False
-                btn.operator(
-                    "rigui.toggle_masks",
-                    emboss=True,
-                    text="",
-                )
+                btn.operator("rigui.toggle_masks", emboss=True, text="")
             else:
-                box_line.prop(
-                    armature.data.collections[r.name],
+                row.prop(
+                    armature.data.collections[col_data.name],
                     "is_solo" if any_solo else "is_visible",
                     toggle=True,
-                    text=name,
+                    text=label,
                 )
 
 

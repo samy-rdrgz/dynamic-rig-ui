@@ -1,12 +1,9 @@
 """Opérateurs pour l'interface utilisateur."""
 
-import contextlib
-
 import bpy
 from bpy.props import IntProperty, StringProperty
 from bpy.types import Operator
 
-from ..config import RIG_NAME
 from ..utils import get_active_rig, get_enum_mapping, get_property_bone
 
 
@@ -25,17 +22,14 @@ class WM_OT_text_popup(Operator):
         layout.scale_y = 0.7
         layout.label(text=self.title.upper(), icon=self._get_valid_icon())
         layout.separator(type="LINE")
-
         for line in self.message.split("\n"):
             layout.label(text=line)
 
     def invoke(self, context, event):
-        # Calcule la largeur optimale
         lines = self.message.split("\n")
         max_line_length = max((len(line) for line in lines), default=0) * 8
         title_length = len(self.title) * 9 + 23
         width = min(max(max_line_length, title_length), 300)
-
         return context.window_manager.invoke_popup(self, width=width)
 
     def execute(self, context):
@@ -49,71 +43,9 @@ class WM_OT_text_popup(Operator):
         return self.icon if self.icon in valid_icons else "INFO"
 
 
-class RIGUI_OT_reload_ui(Operator):
-    """Recharge l'UI avec l'ordre des panels choisi."""
-
-    bl_idname = f"{RIG_NAME.lower()}.reload_ui"
-    bl_label = "Reload UI"
-    bl_description = "Reload UI with chosen panels order"
-    bl_options = {"UNDO", "INTERNAL"}
-
-    def execute(self, context):
-        # Import ici pour éviter les imports circulaires
-        from ..panels import (
-            RIGUI_PT_customprops,
-            RIGUI_PT_main,
-            RIGUI_PT_masks,
-            RIGUI_PT_rigui,
-            RIGUI_PT_settings,
-            RIGUI_PT_tools,
-        )
-
-        settings = context.scene.rigui_settings
-
-        panel_map = {
-            "RIG_UI_PT_rigui": RIGUI_PT_rigui,
-            "RIG_UI_PT_customprops": RIGUI_PT_customprops,
-            "RIG_UI_PT_masks": RIGUI_PT_masks,
-            "RIG_UI_PT_tools": RIGUI_PT_tools,
-            "N": None,
-        }
-
-        # Construit la liste des panels à afficher
-        panels_to_register = [RIGUI_PT_main]
-
-        for panel_id in [settings.p_A, settings.p_B, settings.p_C, settings.p_D]:
-            panel_class = panel_map.get(panel_id)
-            if panel_class and panel_class not in panels_to_register:
-                panels_to_register.append(panel_class)
-
-        panels_to_register.append(RIGUI_PT_settings)
-
-        # Désenregistre tous les panels
-        all_panels = [
-            RIGUI_PT_main,
-            RIGUI_PT_rigui,
-            RIGUI_PT_masks,
-            RIGUI_PT_tools,
-            RIGUI_PT_customprops,
-            RIGUI_PT_settings,
-        ]
-
-        for panel in all_panels:
-            with contextlib.suppress(RuntimeError, ValueError):
-                bpy.utils.unregister_class(panel)
-
-        # Réinitialise les propriétés UI
-        # init_ui_properties()
-
-        # Réenregistre dans l'ordre voulu
-        for panel in panels_to_register:
-            if panel is not None:
-                bpy.utils.register_class(panel)
-
-        return {"FINISHED"}
-
-
 class RIGUI_OT_set_int_prop(Operator):
+    """Assigne une valeur entière à une custom prop du property bone."""
+
     bl_idname = "rigui.set_int_prop"
     bl_label = ""
     bl_options = {"UNDO", "INTERNAL"}
@@ -123,14 +55,16 @@ class RIGUI_OT_set_int_prop(Operator):
 
     def execute(self, context):
         armature = get_active_rig(context)
-        pb = get_property_bone(armature)
-        pb[self.prop_name] = self.value
+        property_bone = get_property_bone(armature)
+        if property_bone is None:
+            return {"CANCELLED"}
+
+        property_bone[self.prop_name] = self.value
 
         # Force la mise à jour des drivers
         armature.update_tag()
         context.view_layer.depsgraph.update()
 
-        # Force redraw du viewport
         for area in context.screen.areas:
             if area.type == "VIEW_3D":
                 area.tag_redraw()
@@ -139,6 +73,11 @@ class RIGUI_OT_set_int_prop(Operator):
 
 
 class RIGUI_OT_enum_popup(Operator):
+    """Affiche un menu de sélection pour une custom prop de type enum (stockée en int).
+
+    Ctrl+Clic : affiche la prop brute éditable.
+    """
+
     bl_idname = "rigui.enum_popup"
     bl_label = ""
     bl_options = {"INTERNAL"}
@@ -147,47 +86,42 @@ class RIGUI_OT_enum_popup(Operator):
 
     def invoke(self, context, event):
         if event.ctrl:
-            # Popup avec la prop brute
             return context.window_manager.invoke_popup(self, width=200)
-
-        # Menu normal
         return self.execute(context)
 
     def execute(self, context):
-        # Stocke pour le callback
+        # Stocke le nom de prop pour le callback statique
         RIGUI_OT_enum_popup._current_prop = self.prop_name
-
-        # Ouvre le menu
         context.window_manager.popup_menu(self.draw_menu, title=self.prop_name)
         return {"FINISHED"}
 
     def draw(self, context):
         """Popup Ctrl+Clic : prop brute éditable."""
         layout = self.layout
-        pb = get_property_bone(get_active_rig(context))
-        layout.prop(pb, f'["{self.prop_name}"]', text=self.prop_name)
+        property_bone = get_property_bone(get_active_rig(context))
+        layout.prop(property_bone, f'["{self.prop_name}"]', text=self.prop_name)
 
     @staticmethod
     def draw_menu(menu, context):
         layout = menu.layout
-        pb = get_property_bone(get_active_rig(context))
+        property_bone = get_property_bone(get_active_rig(context))
         prop_name = RIGUI_OT_enum_popup._current_prop
-        mapping = get_enum_mapping(pb, prop_name)
-        current = pb.get(prop_name, 0)
+        mapping = get_enum_mapping(property_bone, prop_name)
+        current = property_bone.get(prop_name, 0)
 
         for value, label in mapping.items():
             op = layout.operator(
-                "rigui.set_int_prop", text=label, icon="REC" if value == current else "BLANK1"
+                "rigui.set_int_prop",
+                text=label,
+                icon="REC" if value == current else "BLANK1",
             )
             op.prop_name = prop_name
             op.value = value
 
 
-# Pas besoin de RIGUI_MT_enum_menu du tout !
-
-
 # Classes à enregistrer
 classes = (
     WM_OT_text_popup,
-    RIGUI_OT_reload_ui,
+    RIGUI_OT_set_int_prop,
+    RIGUI_OT_enum_popup,
 )
