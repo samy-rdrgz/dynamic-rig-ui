@@ -64,7 +64,9 @@ class RIGUI_PT_rigui(Panel):
             if any_box_expanded(context.scene, rig_id, "ui_ctrl_", read_only=True)
             else "RIGHTARROW"
         )
-        op = btn_collapse.operator("rigui.toggle_boxes", emboss=False, text="", icon=icon)
+        op = btn_collapse.operator(
+            "rigui.toggle_boxes", emboss=False, text="", icon=icon
+        )
         op.prefix = "ui_ctrl_"
         op.parts = parts_str
 
@@ -150,12 +152,16 @@ class RIGUI_PT_rigui(Panel):
         props_hierarchy,
     ):
         box = panel.box().column(align=True)
-        expanded = get_box_expanded(context.scene, rig_id, f"ui_ctrl_{box_group[0].part}")
+        expanded = get_box_expanded(
+            context.scene, rig_id, f"ui_ctrl_{box_group[0].part}"
+        )
 
         if any_solo and not any_collection(armature, box_group, "is_solo"):
             box.active = False
 
-        any_visible = any_collection(armature, box_group, "is_solo" if any_solo else "is_visible")
+        any_visible = any_collection(
+            armature, box_group, "is_solo" if any_solo else "is_visible"
+        )
 
         self._draw_group_header(box, rig_id, box_group, expanded, any_visible, any_solo)
 
@@ -166,7 +172,9 @@ class RIGUI_PT_rigui(Panel):
             )
         return box
 
-    def _draw_group_header(self, box_layout, rig_id, box_group, expanded, any_visible, any_solo):
+    def _draw_group_header(
+        self, box_layout, rig_id, box_group, expanded, any_visible, any_solo
+    ):
         title_line = box_layout.row(align=True)
         title_line.scale_y = 1.1
 
@@ -184,7 +192,9 @@ class RIGUI_PT_rigui(Panel):
         op.parts = box_group[0].part
 
         icon = "DOWNARROW_HLT" if expanded else "RIGHTARROW"
-        op = title_collapse.operator("rigui.toggle_boxes", emboss=False, text="", icon=icon)
+        op = title_collapse.operator(
+            "rigui.toggle_boxes", emboss=False, text="", icon=icon
+        )
         op.prefix = "ui_ctrl_"
         op.parts = box_group[0].part
 
@@ -195,21 +205,28 @@ class RIGUI_PT_rigui(Panel):
         content.scale_y = 1.3
         col_index = 0
         flat_props = [prop for part in props_hierarchy for prop in part]
-
+        row = content.column(align=False).row(align=True)
         for col_data in box_group:
             # --- Inline custom props (:PROP) ---
             if col_data.is_prop:
                 row = content.column(align=False).row(align=True)
                 for prop in flat_props:
-                    if prop.part == col_data.part and prop.sub_part == col_data.sub_part:
+                    if (
+                        prop.part == col_data.part
+                        and prop.sub_part == col_data.sub_part
+                    ):
                         mapping = get_enum_mapping(property_bone, prop.name)
                         if mapping:
                             current = property_bone.get(prop.name, 0)
                             label = mapping.get(current, str(current))
-                            op = row.operator("rigui.enum_popup", text=label, icon="DOWNARROW_HLT")
+                            op = row.operator(
+                                "rigui.enum_popup", text=label, icon="DOWNARROW_HLT"
+                            )
                             op.prop_name = prop.name
                         else:
-                            row.prop(property_bone, f'["{prop.name}"]', text="", slider=True)
+                            row.prop(
+                                property_bone, f'["{prop.name}"]', text="", slider=True
+                            )
                 continue
 
             # --- Inline masks (:MASK) ---
@@ -220,10 +237,13 @@ class RIGUI_PT_rigui(Panel):
                     for modifier in child.modifiers
                     if (
                         modifier.type == "MASK"
-                        and modifier.vertex_group[5:].split(".")[0] == col_data.name.split(":")[0]
+                        and modifier.vertex_group[5:].split(".")[0]
+                        == col_data.name.split(":")[0]
                     )
                 ]
-                mask_pattern = re.compile(r"^(MASK_)([A-Z0-9_]+)(.([LMR]|(\d)))?$", re.MULTILINE)
+                mask_pattern = re.compile(
+                    r"^(MASK_)([A-Z0-9_]+)(.([LMR]|(\d)))?$", re.MULTILINE
+                )
                 row = content.column(align=False).row(align=True)
                 row.alignment = "EXPAND"
 
@@ -245,7 +265,9 @@ class RIGUI_PT_rigui(Panel):
                 continue
 
             # --- Gestion colonnes L/R / custom_side ---
-            if (not col_data.has_side or col_data.side == ".L") and col_data.custom_side == "":
+            if (
+                not col_data.has_side or col_data.side == ".L"
+            ) and col_data.custom_side == "":
                 row = content.row(align=True)
                 col_index = 0
             elif not col_data.has_side:
