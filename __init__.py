@@ -10,6 +10,7 @@ bl_info = {
     "author": "Samy RODRIGUEZ",
     "version": (1, 0, 0),
     "blender": (5, 0, 0),
+    "blender_version_min": "5.0.0",
     "location": "View3D > Sidebar > Item  |  View3D > Sidebar > Dyn RigUI",
     "description": "Dynamic rig UI driven by bone collections, custom properties and JSON config",
     "category": "Rigging",

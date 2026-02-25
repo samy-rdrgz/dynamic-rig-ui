@@ -1,0 +1,9 @@
+schema_version = "1.0.0"
+id = "dynamic_rig_ui"
+version = "1.0.0"
+name = "Dynamic Rig UI"
+tagline = "Dynamic rig UI driven by bone collections and custom properties"
+maintainer = "Samy RODRIGUEZ samy.rodriguez@proton.me"
+type = "add-on"
+blender_version_min = "5.0.0"
+license = ["SPDX:GPL-3.0-or-later"]
