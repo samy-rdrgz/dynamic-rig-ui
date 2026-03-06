@@ -2,6 +2,9 @@
 
 Dynamic user interface generation for Blender rigs. Driven by bone collections, it displays their visibility toggles, custom properties, mask modifiers of child objects, and IK/FK smart switch buttons.
 
+## Demo
+[![Dynamic Rig UI - Demo](https://vumbnail.com/1171151228.jpg)](https://vimeo.com/1171151228)
+
 ## Installation
 
 1. Download ZIP
