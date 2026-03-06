@@ -14,7 +14,7 @@ from ..utils import (
 
 
 class RIGUI_OT_toggle_boxes(Operator):
-    """Toggle l'état expanded/collapsed de boxes avec un préfixe donné."""
+    """Toggle the expanded/collapsed state of selected boxes"""
 
     bl_idname = "rigui.toggle_boxes"
     bl_label = "Toggle All Boxes"
@@ -29,7 +29,9 @@ class RIGUI_OT_toggle_boxes(Operator):
         scene = context.scene
         parts = self.parts.split(",")
 
-        matching_boxes = [get_box_state(scene, rig_id, self.prefix + part) for part in parts]
+        matching_boxes = [
+            get_box_state(scene, rig_id, self.prefix + part) for part in parts
+        ]
 
         # Si au moins une box est ouverte → tout fermer, sinon tout ouvrir
         expand = not any(box.expanded for box in matching_boxes)
@@ -41,7 +43,7 @@ class RIGUI_OT_toggle_boxes(Operator):
 
 
 class RIGUI_OT_toggle_masks(Operator):
-    """Toggle la visibilité des modifiers MASK des meshes enfants."""
+    """Toggle the visibility of MASK modifiers on child meshes."""
 
     bl_idname = "rigui.toggle_masks"
     bl_label = "Toggle Masks"
@@ -79,7 +81,7 @@ class RIGUI_OT_toggle_masks(Operator):
 
 
 class RIGUI_OT_ctrl_box_actions(Operator):
-    """Action sur toutes les collections d'une part (visibilité / solo / toggle boxes)."""
+    """Actions on collection selection (visibility/solo/toggle box)."""
 
     bl_idname = "rigui.ctrl_box_actions"
     bl_label = "Action on Part"
@@ -110,11 +112,23 @@ class RIGUI_OT_ctrl_box_actions(Operator):
         attr = "is_solo" if self.is_ctrl_hold else "is_visible"
 
         collections = get_collections_by_part(armature, self.parts)
-        collections = [armature.data.collections[c.name] for c in collections if c.name]
+        collections = [
+            armature.data.collections[c.name]
+            for c in collections
+            if (c.name and not c.has_custom_type)
+        ]
 
-        visible = not any(getattr(c, attr) for c in collections)
+        any_displayed = not any(getattr(c, attr) for c in collections)
+
+        if self.is_ctrl_hold:
+            any_visible = any(getattr(c, "is_visible") for c in collections)
 
         for c in collections:
-            setattr(c, attr, visible)
+            if (
+                (self.is_ctrl_hold and c.is_visible)
+                or not self.is_ctrl_hold
+                or not any_visible
+            ):
+                setattr(c, attr, any_displayed)
 
         return {"FINISHED"}

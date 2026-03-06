@@ -33,7 +33,9 @@ class RIGUI_PT_settings(Panel):
             info.separator(type="LINE")
             info.label(text=f"Name : {rig.data[RIG_NAME]}")
             info.label(text=f"ID   : {rig.data[RIG_ID]}")
-            info.prop(context.active_object.data, f'["{PROPERTY_BONE}"]', text="Prop bone")
+            info.prop(
+                context.active_object.data, f'["{PROPERTY_BONE}"]', text="Prop bone"
+            )
 
             col.separator(factor=1.5)
 

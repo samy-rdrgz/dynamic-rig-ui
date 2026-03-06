@@ -8,7 +8,7 @@ from ..utils import get_active_rig, get_enum_mapping, get_property_bone
 
 
 class WM_OT_text_popup(Operator):
-    """Affiche une popup d'information configurable."""
+    """Displays a configurable information popup."""
 
     bl_idname = "wm.text_popup"
     bl_label = "Information"
@@ -38,13 +38,15 @@ class WM_OT_text_popup(Operator):
     def _get_valid_icon(self) -> str:
         """Retourne l'icône si valide, sinon INFO."""
         valid_icons = (
-            bpy.types.UILayout.bl_rna.functions["label"].parameters["icon"].enum_items.keys()
+            bpy.types.UILayout.bl_rna.functions["label"]
+            .parameters["icon"]
+            .enum_items.keys()
         )
         return self.icon if self.icon in valid_icons else "INFO"
 
 
 class RIGUI_OT_set_int_prop(Operator):
-    """Assigne une valeur entière à une custom prop du property bone."""
+    """Set custom prop value."""
 
     bl_idname = "rigui.set_int_prop"
     bl_label = ""
@@ -73,9 +75,8 @@ class RIGUI_OT_set_int_prop(Operator):
 
 
 class RIGUI_OT_enum_popup(Operator):
-    """Affiche un menu de sélection pour une custom prop de type enum (stockée en int).
-
-    Ctrl+Clic : affiche la prop brute éditable.
+    """Select Enum Value for Custom Prop, based on JSON mapping.
+    Ctrl+Clic : Displays the rough editable property.
     """
 
     bl_idname = "rigui.enum_popup"

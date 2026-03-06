@@ -11,9 +11,9 @@ from ..utils import get_active_rig, get_property_bone
 
 
 def _load_chains(armature) -> dict:
-    """Charge et parse le JSON des chaînes IK/FK depuis les custom props.
+    """Loads and parses JSON for IK/FK chains from custom props.
 
-    Format attendu dans armature.data[IK_CHAINS] :
+    Expected format in armature.data[IK_CHAINS] :
     {
         "LEG": {
             "switch_prop": "LEG_FK_IK",
@@ -36,7 +36,7 @@ def _load_chains(armature) -> dict:
     }
 
     Returns:
-        Dict parsé ou {} si absent / invalide.
+        Parsed dict or {} if absent/invalid.
     """
     raw = armature.data.get(IK_CHAINS, "")
     if not raw:
@@ -48,9 +48,8 @@ def _load_chains(armature) -> dict:
 
 
 def _build_bone_lookup(chains: dict) -> dict[str, tuple]:
-    """Construit un index bone_name -> (fk, ik, limb, switch_prop, direction).
-
-    Permet de détecter quel membre et quelle direction en O(1).
+    """Builds an index bone_name -> (fk, ik, limb, switch_prop, direction).
+    Allows detecting which limb and which direction in O(1).
     """
     lookup = {}
     for chain_name, chain in chains.items():
@@ -69,15 +68,16 @@ def _build_bone_lookup(chains: dict) -> dict[str, tuple]:
 
 
 class RIGUI_OT_snap_kinematic(Operator):
-    """Snap un membre sur la cinématique opposée (FK->IK ou IK->FK).
-
-    La détection du membre et de la direction est automatique
-    selon le bone actif sélectionné.
+    """Snap a limb to the opposite kinematic (FK->IK or IK->FK).
+    Limb and direction detection is automatic based on the
+    selected active destination bone.
     """
 
     bl_idname = "rigui.snap_opposite_kinematic"
     bl_label = "Snap Kinematic"
-    bl_description = "Snap limb to opposite kinematic (select any controller of destination chain)"
+    bl_description = (
+        "Snap limb to opposite kinematic (select any controller of destination chain)"
+    )
     bl_options = {"UNDO", "INTERNAL"}
 
     @classmethod
@@ -97,8 +97,12 @@ class RIGUI_OT_snap_kinematic(Operator):
         parts = active_pose_bone.name.rsplit(".", 1)
         if len(parts) == 1:
             bone_name, side = active_pose_bone.name, ""
-        elif len(parts) < 2 or (parts[1] not in ("L", "M", "R") and not parts[1].isdigit()):
-            return self._error("Bone must have a side suffix (.L or .M or .R or .1/.2/.../.9).")
+        elif len(parts) < 2 or (
+            parts[1] not in ("L", "M", "R") and not parts[1].isdigit()
+        ):
+            return self._error(
+                "Bone must have a side suffix (.L or .M or .R or .1/.2/.../.9)."
+            )
         else:
             bone_name, side = parts
 
@@ -126,9 +130,13 @@ class RIGUI_OT_snap_kinematic(Operator):
 
         try:
             if direction == "ik_to_fk":
-                self._snap_ik_to_fk(armature, pose_bones, property_bone, fk, ik, switch_prop, side)
+                self._snap_ik_to_fk(
+                    armature, pose_bones, property_bone, fk, ik, switch_prop, side
+                )
             else:
-                self._snap_fk_to_ik(armature, pose_bones, property_bone, fk, ik, switch_prop, side)
+                self._snap_fk_to_ik(
+                    armature, pose_bones, property_bone, fk, ik, switch_prop, side
+                )
         except KeyError as e:
             return self._error(f"Bone not found: {e}\nCheck your IK chain JSON config.")
 
@@ -157,7 +165,9 @@ class RIGUI_OT_snap_kinematic(Operator):
 
     # -------------------------------------------------------------------------
 
-    def _snap_ik_to_fk(self, armature, pose_bones, property_bone, fk, ik, switch_prop, side):
+    def _snap_ik_to_fk(
+        self, armature, pose_bones, property_bone, fk, ik, switch_prop, side
+    ):
         """Snap les contrôleurs IK sur la position FK actuelle."""
         from ..utils import get_matrix_with_offset
 
@@ -177,7 +187,9 @@ class RIGUI_OT_snap_kinematic(Operator):
 
         self._auto_keyframe(armature, [ik_end, ik_pole, property_bone])
 
-    def _snap_fk_to_ik(self, armature, pose_bones, property_bone, fk, ik, switch_prop, side):
+    def _snap_fk_to_ik(
+        self, armature, pose_bones, property_bone, fk, ik, switch_prop, side
+    ):
         """Snap les contrôleurs FK sur la position IK actuelle, parent -> enfant."""
         from ..utils import get_matrix_with_offset
 
@@ -230,11 +242,13 @@ class RIGUI_OT_snap_kinematic(Operator):
 
 
 class RIGUI_OT_apply_ik_chains(Operator):
-    """Applique un Text block JSON comme config IK/FK sur l'armature active."""
+    """Applies a JSON text block as IK/FK configuration to the active rig."""
 
     bl_idname = "rigui.apply_ik_chains"
     bl_label = "Apply IK Chains JSON"
-    bl_description = "Read a JSON text block and store it in the armature's IK chains property"
+    bl_description = (
+        "Read a JSON text block and store it in the armature's IK chains property"
+    )
     bl_options = {"UNDO", "INTERNAL"}
 
     text_block: StringProperty(name="Text Block")

@@ -8,10 +8,10 @@ mask modifiers, et fournit des outils de snap IK/FK et de setup de rig.
 bl_info = {
     "name": "Dynamic Rig UI",
     "author": "Samy RODRIGUEZ",
-    "version": (1, 0, 0),
+    "version": (1, 0, 1),
     "blender": (5, 0, 0),
     "blender_version_min": "5.0.0",
-    "location": "View3D > Sidebar > Item  |  View3D > Sidebar > Dyn RigUI",
+    "location": "View3D > Sidebar > Item  |  View3D > Sidebar > DRigUI",
     "description": "Dynamic rig UI driven by bone collections, custom properties and JSON config",
     "category": "Rigging",
 }
@@ -42,7 +42,9 @@ def register():
         bpy.utils.register_class(cls)
 
     bpy.types.Scene.input_name = bpy.props.StringProperty(name="Rig name")
-    bpy.types.Scene.rigui_states = bpy.props.CollectionProperty(type=RIGUI_PG_RigUIState)
+    bpy.types.Scene.rigui_states = bpy.props.CollectionProperty(
+        type=RIGUI_PG_RigUIState
+    )
 
 
 def unregister():

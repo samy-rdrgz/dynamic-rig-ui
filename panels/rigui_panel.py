@@ -203,6 +203,7 @@ class RIGUI_PT_rigui(Panel):
     ):
         content = box.column(align=True)
         content.scale_y = 1.3
+        is_custom_row = False
         col_index = 0
         flat_props = [prop for part in props_hierarchy for prop in part]
         row = content.column(align=False).row(align=True)
@@ -217,8 +218,13 @@ class RIGUI_PT_rigui(Panel):
                     ):
                         mapping = get_enum_mapping(property_bone, prop.name)
                         if mapping:
+                            prec = (
+                                property_bone.id_properties_ui(prop.name)
+                                .as_dict()
+                                .get("precision", 3)
+                            )
                             current = property_bone.get(prop.name, 0)
-                            label = mapping.get(current, str(current))
+                            label = mapping.get(current, str(round(current, prec)))
                             op = row.operator(
                                 "rigui.enum_popup", text=label, icon="DOWNARROW_HLT"
                             )
@@ -265,17 +271,20 @@ class RIGUI_PT_rigui(Panel):
                 continue
 
             # --- Gestion colonnes L/R / custom_side ---
+
             if (
-                not col_data.has_side or col_data.side == ".L"
-            ) and col_data.custom_side == "":
+                not col_data.has_side
+                or col_data.side == ".L"
+                or (col_data.custom_side and int(col_data.custom_side[1:]) <= col_index)
+                or (col_data.custom_side and not is_custom_row)
+            ):
                 row = content.row(align=True)
                 col_index = 0
-            elif not col_data.has_side:
-                if col_index >= int(str(col_data.custom_side)[1:]):
-                    row = content.row(align=True)
-                    col_index = 0
-                else:
-                    col_index += 1
+
+            elif col_data.custom_side:
+                col_index += 1
+
+            is_custom_row = col_data.custom_side != ""
 
             # --- Bouton visibilité ---
             label = col_data.sub_part if col_data.sub_part else "MAIN"

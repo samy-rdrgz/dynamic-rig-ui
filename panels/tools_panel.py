@@ -12,7 +12,7 @@ class RIGUI_PT_tools(Panel):
     """Panel rassemblant les outils d'animation et de setup."""
 
     bl_idname = "RIGUI_PT_tools"
-    bl_label = "DRIGUI - AnimTools"
+    bl_label = "DRIGUI - TOOLS"
     bl_category = "Item"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"

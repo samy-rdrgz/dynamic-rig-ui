@@ -8,14 +8,15 @@ from ..utils import show_messagebox
 
 
 class RIGUI_OT_create_masks(Operator):
-    """Crée les modifiers MASK depuis les vertex groups préfixés MASK_.
-
-    Fonctionne sur les meshes sélectionnés ou sur les enfants d'une armature sélectionnée.
+    """Creates MASK modifiers from vertex groups prefixed with MASK_.
+    Works on selected meshes or on the children of a selected armature.
     """
 
     bl_idname = "rigui.create_masks"
     bl_label = "Create Mask Modifiers"
-    bl_description = "From vertex groups starting with 'MASK_', create or update mask modifiers"
+    bl_description = (
+        "From vertex groups starting with 'MASK_', create or update mask modifiers"
+    )
     bl_options = {"UNDO", "INTERNAL"}
 
     def execute(self, context):
@@ -40,8 +41,12 @@ class RIGUI_OT_create_masks(Operator):
         lines = []
         for obj in objs:
             lines.append(f"from object {obj.name.upper()} :")
-            existing_mask_modifiers = {m.vertex_group: m for m in obj.modifiers if m.type == "MASK"}
-            mask_vertex_groups = [vg for vg in obj.vertex_groups if vg.name.startswith("MASK_")]
+            existing_mask_modifiers = {
+                m.vertex_group: m for m in obj.modifiers if m.type == "MASK"
+            }
+            mask_vertex_groups = [
+                vg for vg in obj.vertex_groups if vg.name.startswith("MASK_")
+            ]
 
             for mask_vg in mask_vertex_groups:
                 lines.append(f"  - {mask_vg.name}")
@@ -66,11 +71,13 @@ class RIGUI_OT_create_masks(Operator):
 
 
 class RIGUI_OT_symmetrize_collections(Operator):
-    """Crée les collections miroir manquantes (.L → .R et inversement)."""
+    """Creates missing mirror collections (.L → .R and vice versa)."""
 
     bl_idname = "rigui.symmetrize_collections"
     bl_label = "Symmetrize Collections"
-    bl_description = "Find bone collections with .L/.R suffix and create the missing mirror"
+    bl_description = (
+        "Find bone collections with .L/.R suffix and create the missing mirror"
+    )
     bl_options = {"UNDO", "INTERNAL"}
 
     def execute(self, context):
@@ -94,18 +101,21 @@ class RIGUI_OT_symmetrize_collections(Operator):
                 existing.add(mirror_name)
 
         if lines:
-            show_messagebox(f"{len(lines)} collections created", lines, icon="MOD_MIRROR")
+            show_messagebox(
+                f"{len(lines)} collections created", lines, icon="MOD_MIRROR"
+            )
         else:
-            show_messagebox("No collection to symmetrize", ["All .L/.R pairs already exist."])
+            show_messagebox(
+                "No collection to symmetrize", ["All .L/.R pairs already exist."]
+            )
 
         return {"FINISHED"}
 
 
 class RIGUI_OT_create_custom_shape(Operator):
-    """Crée un objet aligné sur le bone actif et l'assigne comme custom shape.
-
-    Si un second bone est sélectionné, il est utilisé comme override transform.
-    Gère automatiquement le miroir pour les bones .L / .R.
+    """Creates a new object aligned with the active bone and assigns it as a custom shape.
+    If a second bone is selected, it is used as the override transform.
+    Automatically handles mirroring for .L / .R bones.
     """
 
     bl_idname = "rigui.create_custom_shape"
@@ -136,7 +146,9 @@ class RIGUI_OT_create_custom_shape(Operator):
 
         # Nom WGT_ sans préfixes techniques
         clean_name = (
-            active_bone.basename.removeprefix("ORG_").removeprefix("MCH_").removeprefix("VIS_")
+            active_bone.basename.removeprefix("ORG_")
+            .removeprefix("MCH_")
+            .removeprefix("VIS_")
         )
         shape_obj.name = f"WGT_{clean_name}"
 
@@ -172,8 +184,8 @@ class RIGUI_OT_create_custom_shape(Operator):
                 mirror_bone.custom_shape_scale_xyz = (-1, 1, 1)
                 if other_bones:
                     mirror_transform_name = other_bones[0].name[:-2] + mirror_suf
-                    mirror_bone.custom_shape_transform = active_bone.id_data.pose.bones.get(
-                        mirror_transform_name
+                    mirror_bone.custom_shape_transform = (
+                        active_bone.id_data.pose.bones.get(mirror_transform_name)
                     )
                 lines.append(f"+ mirrored  →  {mirror_name}")
             except KeyError:

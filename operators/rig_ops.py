@@ -12,11 +12,11 @@ from ..core import _cache
 
 
 class RIGUI_OT_new(Operator):
-    """Initialise Dynamic RigUI sur l'armature active."""
+    """Initializes Dynamic RigUI on the active armature."""
 
     bl_idname = "rigui.new"
     bl_label = "Add Dynamic RigUI"
-    bl_description = "Initialise Dynamic RigUI on the active armature"
+    bl_description = "Initialize Dynamic RigUI on the active armature"
     bl_options = {"UNDO", "INTERNAL"}
 
     rig_name: StringProperty(name="Rig name")
@@ -25,7 +25,9 @@ class RIGUI_OT_new(Operator):
         obj = context.active_object
 
         # Génère un ID unique, vérifie les collisions avec les armatures existantes
-        existing_ids = {arm.get(RIG_ID) for arm in bpy.data.armatures if arm.get(RIG_ID)}
+        existing_ids = {
+            arm.get(RIG_ID) for arm in bpy.data.armatures if arm.get(RIG_ID)
+        }
         while True:
             random_id = "".join(random.choices(string.ascii_letters, k=12))
             if random_id not in existing_ids:
@@ -40,7 +42,7 @@ class RIGUI_OT_new(Operator):
 
 
 class RIGUI_OT_delete(Operator):
-    """Supprime Dynamic RigUI de l'armature active."""
+    """Removes Dynamic RigUI from the active armature."""
 
     bl_idname = "rigui.delete"
     bl_label = "Remove Dynamic RigUI"
